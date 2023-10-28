@@ -1,0 +1,98 @@
+{
+  "precro:hasTypeData": [
+    {
+      "resource_id": 1173,
+      "property_id": 983,
+      "value_resource_id": 1143,
+      "value": null,
+      "property_name": "hasTypeData",
+      "property_label": "Tipi",
+      "vocabulary_prefix": "precro",
+      "local_name": "SinglePlaceRepresentationData",
+      "label": "Dettaglio rappresentazione singolo luogo",
+      "media_link": null
+    }
+  ],
+  "precro:interiorExterior": [
+    {
+      "resource_id": 1173,
+      "property_id": 990,
+      "value_resource_id": null,
+      "value": "Esterno",
+      "property_name": "interiorExterior",
+      "property_label": "Interno/Esterno",
+      "vocabulary_prefix": "precro",
+      "local_name": "SinglePlaceRepresentationData",
+      "label": "Dettaglio rappresentazione singolo luogo",
+      "media_link": null
+    },
+    {
+      "resource_id": 1173,
+      "property_id": 990,
+      "value_resource_id": null,
+      "value": "Interno",
+      "property_name": "interiorExterior",
+      "property_label": "Interno/Esterno",
+      "vocabulary_prefix": "precro",
+      "local_name": "SinglePlaceRepresentationData",
+      "label": "Dettaglio rappresentazione singolo luogo",
+      "media_link": null
+    }
+  ],
+  "precro:placeRepresentationHasRepresentedNarrativePlace": [
+    {
+      "resource_id": 1173,
+      "property_id": 987,
+      "value_resource_id": 1147,
+      "value": null,
+      "property_name": "placeRepresentationHasRepresentedNarrativePlace",
+      "property_label": "Luogo narrativo rappresentato",
+      "vocabulary_prefix": "precro",
+      "local_name": "SinglePlaceRepresentationData",
+      "label": "Dettaglio rappresentazione singolo luogo",
+      "media_link": null
+    }
+  ],
+  "precro:placeRepresentationHasDisplayedObject": [
+    {
+      "resource_id": 1173,
+      "property_id": 986,
+      "value_resource_id": 1151,
+      "value": null,
+      "property_name": "placeRepresentationHasDisplayedObject",
+      "property_label": "Oggetto visualizzato",
+      "vocabulary_prefix": "precro",
+      "local_name": "SinglePlaceRepresentationData",
+      "label": "Dettaglio rappresentazione singolo luogo",
+      "media_link": null
+    }
+  ],
+  "dcterms:description": [
+    {
+      "resource_id": 1173,
+      "property_id": 4,
+      "value_resource_id": null,
+      "value": "Item created for testing purpouse",
+      "property_name": "description",
+      "property_label": "Description",
+      "vocabulary_prefix": "dcterms",
+      "local_name": "SinglePlaceRepresentationData",
+      "label": "Dettaglio rappresentazione singolo luogo",
+      "media_link": null
+    }
+  ],
+  "dcterms:title": [
+    {
+      "resource_id": 1173,
+      "property_id": 1,
+      "value_resource_id": null,
+      "value": "Dettaglio rappresentazione singolo luogo : Monte dei Cappuccini",
+      "property_name": "title",
+      "property_label": "Title",
+      "vocabulary_prefix": "dcterms",
+      "local_name": "SinglePlaceRepresentationData",
+      "label": "Dettaglio rappresentazione singolo luogo",
+      "media_link": null
+    }
+  ]
+}
