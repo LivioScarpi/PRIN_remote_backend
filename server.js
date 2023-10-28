@@ -1,4 +1,4 @@
-const production = false;
+const production = true;
 
 const functions = require('./composeFilmQuery');
 const http = require("http");
@@ -8,6 +8,8 @@ var jsonParser = bodyParser.json()
 var mysql = require('mysql');
 
 var dbname = production ? "omekas_production_db" : "omekas_db";
+
+var portNumber = production ? 3004 : 3003;
 
 const server = http.createServer((req, res) => {
     const urlPath = req.url;
@@ -73,7 +75,7 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(3003, "localhost", () => {
+server.listen(portNumber, "localhost", () => {
     console.log("Listening for request");
 });
 
