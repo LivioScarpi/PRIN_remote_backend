@@ -1,81 +1,92 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const mysql = require("mysql");
-const { parse } = require("url");
-
 const production = false;
-const functions = require("./composeFilmQuery");
 
-const app = express();
-const portNumber = production ? 3004 : 3003;
-const dbname = production ? "omekas_production_db" : "omekas_db";
+const functions = require('./composeFilmQuery');
+const http = require("http");
+var url = require('url');
+var bodyParser = require('body-parser')
+var jsonParser = bodyParser.json()
+var mysql = require('mysql');
 
-app.use(bodyParser.json());
+var dbname = production ? "omekas_production_db" : "omekas_db";
 
-app.get("/server/overview", (req, res) => {
-    res.send('Welcome to the "overview page" of the nginX project');
-});
+var portNumber = production ? 3004 : 3003;
 
-app.get("/server/jsontest", (req, res) => {
-    res.json({
-        product_id: "xyz12u3",
-        product_name: "NginX injector",
+const server = http.createServer((req, res) => {
+    const urlPath = req.url;
+    console.log("REQ TEST");
+    console.log(urlPath);
+    console.log(req.body);
+    var params = url.parse(req.url, true).query;
+    console.log(params);
+
+    var body = null;
+
+    jsonParser(req, res, (error) => {
+        // request.body is populated, if there was a json body
+        console.log("CORPO PIENO?");
+        console.log(req.body);
+        console.log("\n\n\n");
+        body = JSON.parse(JSON.stringify(req.body));
+        console.log("REQ.BODY.JOBS\n");
+        console.log(req.body.jobs);
+
+        console.log("HO STAMPATO I JOBS");
+        console.log(body);
+
+        if (urlPath === "//overview") {
+            res.end('Welcome to the "overview page" of the nginX project');
+        } else if (urlPath === "//jsontest") {
+            res.writeHead(200, {"Content-Type": "application/json"});
+            res.end(
+                JSON.stringify({
+                    product_id: "xyz12u3",
+                    product_name: "NginX injector",
+                })
+            );
+        } else if (urlPath === "//get_film_db") {
+            getFilmDB(res);
+        } else if (urlPath === "//get_all_films_db") {
+            getAllFilmsDB(res);
+        } else if (urlPath === "//get_all_locus_db") {
+            getAllLocusDB(res);
+        } else if (urlPath === "//get_schede_av_of_film") {
+            getSchedeAVofFilm(res, req);
+        } else if (urlPath === "//get_unita_catalografiche_of_film") {
+            getUnitaCatalograficheOfFilm(res, req);
+        } else if (urlPath === "//get_schede_luoghi_of_uc") {
+            getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req);
+        } else if (urlPath === "//get_all_locus_related_to_one") {
+            getAllLocusRelatedToOne(res, req);
+        } else if (urlPath === "//get_film_filters") {
+            getFilmFilters(res);
+        } else if (urlPath === "//search_films") {
+            searchFilm(res, req);
+        } else if (urlPath === "//get_locus_of_film") {
+            getLocusOfFilmByFilmID(res, req);
+        } else if (urlPath === "//get_resource_from_id") {
+            try {
+                var resource_id = req.body.resource_id;
+                getResourceFromID(resource_id, res);
+            } catch (err) {
+                console.log(err);
+            }
+        } else {
+            console.log("ORA INVIO LA RISPOSTA");
+            res.end("Successfully started a server \n" + JSON.stringify(body));
+        }
     });
 });
 
-app.get("/server/get_all_films_db", (req, res) => {
-    getAllFilmsDB(res);
+server.listen(portNumber, "localhost", () => {
+    console.log("Listening for request");
 });
 
-app.get("/server/get_all_locus_db", (req, res) => {
-    getAllLocusDB(res);
-});
+function getFilmDB(res) {
 
-app.get("/server/get_schede_av_of_film", (req, res) => {
-    getSchedeAVofFilm(res, req);
-});
+    // return getResourceFromID(879, con, res);
 
-app.get("/server/get_unita_catalografiche_of_film", (req, res) => {
-    getUnitaCatalograficheOfFilm(res, req);
-});
-
-app.get("/server/get_schede_luoghi_of_uc", (req, res) => {
-    getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req);
-});
-
-app.get("/server/get_all_locus_related_to_one", (req, res) => {
-    getAllLocusRelatedToOne(res, req);
-});
-
-app.get("/server/get_film_filters", (req, res) => {
-    getFilmFilters(res);
-});
-
-app.get("/server/search_films", (req, res) => {
-    searchFilm(res, req);
-});
-
-app.get("/server/get_locus_of_film", (req, res) => {
-    getLocusOfFilmByFilmID(res, req);
-});
-
-app.post("/server/get_resource_from_id", (req, res) => {
-    try {
-        const resource_id = req.body.resource_id;
-        getResourceFromID(resource_id, res);
-    } catch (err) {
-        console.log(err);
-    }
-});
-
-app.get("/", (req, res) => {
-    console.log("ORA INVIO LA RISPOSTA");
-    res.send("Successfully started a server");
-});
-
-app.listen(portNumber, "localhost", () => {
-    console.log("Listening for requests");
-});
+    return getResourceFromID(552, con, res);
+}
 
 function getResourceFromID(id, res) {
     var con = mysql.createConnection({
