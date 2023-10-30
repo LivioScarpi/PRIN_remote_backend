@@ -1,10 +1,10 @@
-function composeFilmTitle(objectFilters){
+function composeFilmTitle(objectFilters) {
     console.log("COMPOSE FILM TITLE!!");
 
     var query = `SELECT * FROM (`;
 
     var title_parts = [false, false, false, false];
-    if(objectFilters.titleTextFilmTitle !== '' && objectFilters.titleTextFilmTitle !== null) {
+    if (objectFilters.titleTextFilmTitle !== '' && objectFilters.titleTextFilmTitle !== null) {
         const titleTextFilmTitle = `
         SELECT * FROM 
             (
@@ -29,8 +29,8 @@ function composeFilmTitle(objectFilters){
 
     }
 
-    if(objectFilters.titleLanguageFilmTitle !== '' && objectFilters.titleLanguageFilmTitle !== null) {
-        if(title_parts[0]) {
+    if (objectFilters.titleLanguageFilmTitle !== '' && objectFilters.titleLanguageFilmTitle !== null) {
+        if (title_parts[0]) {
             query += '\n INTERSECT \n'
         }
 
@@ -57,8 +57,8 @@ function composeFilmTitle(objectFilters){
         title_parts[1] = true;
     }
 
-    if(objectFilters.titleTypeFilmTitle !== '' && objectFilters.titleTypeFilmTitle !== null) {
-        if(title_parts[0] || title_parts[1]) {
+    if (objectFilters.titleTypeFilmTitle !== '' && objectFilters.titleTypeFilmTitle !== null) {
+        if (title_parts[0] || title_parts[1]) {
             query += '\n INTERSECT \n';
         }
 
@@ -85,8 +85,8 @@ function composeFilmTitle(objectFilters){
         title_parts[2] = true;
     }
 
-    if(objectFilters.titleOtherCharacterizationFilmTitle !== '' && objectFilters.titleOtherCharacterizationFilmTitle !== null) {
-        if(title_parts[0] || title_parts[1] || title_parts[2]) {
+    if (objectFilters.titleOtherCharacterizationFilmTitle !== '' && objectFilters.titleOtherCharacterizationFilmTitle !== null) {
+        if (title_parts[0] || title_parts[1] || title_parts[2]) {
             query += '\n INTERSECT \n';
         }
 
@@ -121,13 +121,13 @@ function composeFilmTitle(objectFilters){
     return query;
 }
 
-function composeSerieTitle(objectFilters){
+function composeSerieTitle(objectFilters) {
     console.log("COMPOSE SERIE TITLE!!");
 
     var query = `SELECT * FROM (`;
 
     var title_parts = [false, false, false, false];
-    if(objectFilters.titleTextSerieTitle !== '' && objectFilters.titleTextSerieTitle !== null) {
+    if (objectFilters.titleTextSerieTitle !== '' && objectFilters.titleTextSerieTitle !== null) {
         const titleTextSerieTitle = `
         SELECT * FROM 
             (
@@ -152,8 +152,8 @@ function composeSerieTitle(objectFilters){
 
     }
 
-    if(objectFilters.titleLanguageSerieTitle !== '' && objectFilters.titleLanguageSerieTitle !== null) {
-        if(title_parts[0]) {
+    if (objectFilters.titleLanguageSerieTitle !== '' && objectFilters.titleLanguageSerieTitle !== null) {
+        if (title_parts[0]) {
             query += '\n INTERSECT \n'
         }
 
@@ -180,8 +180,8 @@ function composeSerieTitle(objectFilters){
         title_parts[1] = true;
     }
 
-    if(objectFilters.titleTypeSerieTitle !== '' && objectFilters.titleTypeSerieTitle !== null) {
-        if(title_parts[0] || title_parts[1]) {
+    if (objectFilters.titleTypeSerieTitle !== '' && objectFilters.titleTypeSerieTitle !== null) {
+        if (title_parts[0] || title_parts[1]) {
             query += '\n INTERSECT \n';
         }
 
@@ -208,8 +208,8 @@ function composeSerieTitle(objectFilters){
         title_parts[2] = true;
     }
 
-    if(objectFilters.titleOtherCharacterizationSerieTitle !== '' && objectFilters.titleOtherCharacterizationSerieTitle !== null) {
-        if(title_parts[0] || title_parts[1] || title_parts[2]) {
+    if (objectFilters.titleOtherCharacterizationSerieTitle !== '' && objectFilters.titleOtherCharacterizationSerieTitle !== null) {
+        if (title_parts[0] || title_parts[1] || title_parts[2]) {
             query += '\n INTERSECT \n';
         }
 
@@ -245,13 +245,13 @@ function composeSerieTitle(objectFilters){
 }
 
 
-function composeEpisodeSerieTitle(objectFilters){
+function composeEpisodeSerieTitle(objectFilters) {
     console.log("COMPOSE EPISODE SERIE TITLE!!");
 
     var query = `SELECT * FROM (`;
 
     var title_parts = [false, false, false, false];
-    if(objectFilters.titleTextEpisodeSerieTitle !== '' && objectFilters.titleTextEpisodeSerieTitle !== null) {
+    if (objectFilters.titleTextEpisodeSerieTitle !== '' && objectFilters.titleTextEpisodeSerieTitle !== null) {
         const titleTextEpisodeSerieTitle = `
         SELECT * FROM 
             (
@@ -276,8 +276,8 @@ function composeEpisodeSerieTitle(objectFilters){
 
     }
 
-    if(objectFilters.titleLanguageEpisodeSerieTitle !== '' && objectFilters.titleLanguageEpisodeSerieTitle !== null) {
-        if(title_parts[0]) {
+    if (objectFilters.titleLanguageEpisodeSerieTitle !== '' && objectFilters.titleLanguageEpisodeSerieTitle !== null) {
+        if (title_parts[0]) {
             query += '\n INTERSECT \n'
         }
 
@@ -304,8 +304,8 @@ function composeEpisodeSerieTitle(objectFilters){
         title_parts[1] = true;
     }
 
-    if(objectFilters.titleTypeEpisodeSerieTitle !== '' && objectFilters.titleTypeEpisodeSerieTitle !== null) {
-        if(title_parts[0] || title_parts[1]) {
+    if (objectFilters.titleTypeEpisodeSerieTitle !== '' && objectFilters.titleTypeEpisodeSerieTitle !== null) {
+        if (title_parts[0] || title_parts[1]) {
             query += '\n INTERSECT \n';
         }
 
@@ -332,8 +332,8 @@ function composeEpisodeSerieTitle(objectFilters){
         title_parts[2] = true;
     }
 
-    if(objectFilters.titleOtherCharacterizationEpisodeSerieTitle !== '' && objectFilters.titleOtherCharacterizationEpisodeSerieTitle !== null) {
-        if(title_parts[0] || title_parts[1] || title_parts[2]) {
+    if (objectFilters.titleOtherCharacterizationEpisodeSerieTitle !== '' && objectFilters.titleOtherCharacterizationEpisodeSerieTitle !== null) {
+        if (title_parts[0] || title_parts[1] || title_parts[2]) {
             query += '\n INTERSECT \n';
         }
 
@@ -368,20 +368,20 @@ function composeEpisodeSerieTitle(objectFilters){
     return query;
 }
 
-function composeTitle(objectFilters){
+function composeTitle(objectFilters) {
     var query = `SELECT * FROM (\n`;
     var title_parts = [false, false, false, false];
 
-    if(checkFilmTitle(objectFilters)) {
+    if (checkFilmTitle(objectFilters)) {
         filmTitleQuery = composeFilmTitle(objectFilters);
 
         query += filmTitleQuery;
         title_parts[0] = true;
     }
 
-    if(checkSerieTitle(objectFilters)) {
+    if (checkSerieTitle(objectFilters)) {
 
-        if(title_parts[0]){
+        if (title_parts[0]) {
             query += "\nINTERSECT\n";
         }
 
@@ -391,9 +391,9 @@ function composeTitle(objectFilters){
         title_parts[1] = true;
     }
 
-    if(checkEpisodeSerieTitle(objectFilters)) {
+    if (checkEpisodeSerieTitle(objectFilters)) {
 
-        if(title_parts[0] || title_parts[1]){
+        if (title_parts[0] || title_parts[1]) {
             query += "\nINTERSECT\n";
         }
 
@@ -403,9 +403,9 @@ function composeTitle(objectFilters){
         title_parts[2] = true;
     }
 
-    if(objectFilters.copyTitleText !== '' && objectFilters.copyTitleText !== null) {
+    if (objectFilters.copyTitleText !== '' && objectFilters.copyTitleText !== null) {
 
-        if(title_parts[0] || title_parts[1] || title_parts[2]){
+        if (title_parts[0] || title_parts[1] || title_parts[2]) {
             query += "\nINTERSECT\n";
         }
 
@@ -416,7 +416,6 @@ function composeTitle(objectFilters){
     }
 
 
-
     query += '\n) AS titolo';
 
     return query;
@@ -424,7 +423,7 @@ function composeTitle(objectFilters){
     //console.log(query);
 }
 
-function composeCopyTitle(objectFilters){
+function composeCopyTitle(objectFilters) {
     console.log("COMPOSE COPY TITLE!!");
 
     var query = `SELECT * FROM (
@@ -455,7 +454,7 @@ function composeCopyTitle(objectFilters){
     return query;
 }
 
-function composeDirector(objectFilters){
+function composeDirector(objectFilters) {
     console.log("COMPOSE DIRECTOR DOVE SONO!!");
 
     var query = `SELECT * FROM
@@ -470,7 +469,7 @@ function composeDirector(objectFilters){
                     `;
 
     var title_parts = [false, false];
-    if(objectFilters.filmDirectorName !== '' && objectFilters.filmDirectorName !== null) {
+    if (objectFilters.filmDirectorName !== '' && objectFilters.filmDirectorName !== null) {
         const directorName = `
         (p.local_name = "directorName" AND v2.value = "${objectFilters.filmDirectorName}")\n`;
 
@@ -479,7 +478,7 @@ function composeDirector(objectFilters){
 
     }
 
-    if(objectFilters.filmDirectorOtherName !== '' && objectFilters.filmDirectorOtherName !== null) {
+    if (objectFilters.filmDirectorOtherName !== '' && objectFilters.filmDirectorOtherName !== null) {
         if (title_parts[0]) {
             query += '\n OR \n'
         }
@@ -499,7 +498,7 @@ function composeDirector(objectFilters){
     return query;
 }
 
-function composeSubject(objectFilters){
+function composeSubject(objectFilters) {
     console.log("COMPOSE SUBJECT!!");
 
     var query = `SELECT * FROM
@@ -532,7 +531,7 @@ function composeSubject(objectFilters){
     return query;
 }
 
-function composeScreenwriter(objectFilters){
+function composeScreenwriter(objectFilters) {
     console.log("COMPOSE SCREENWRITER!!");
 
     var query = `SELECT * FROM
@@ -557,7 +556,7 @@ function composeScreenwriter(objectFilters){
     return query;
 }
 
-function composeCredits(objectFilters){
+function composeCredits(objectFilters) {
     console.log("COMPOSE CREDITS!!");
 
     var query = `SELECT * FROM
@@ -591,7 +590,7 @@ function composeCredits(objectFilters){
 }
 
 
-function composeProductionName(objectFilters){
+function composeProductionName(objectFilters) {
     console.log("COMPOSE PRODUCTION NAME!!");
 
     var query = `SELECT * FROM
@@ -614,7 +613,7 @@ function composeProductionName(objectFilters){
     return query;
 }
 
-function composeGenres(objectFilters){
+function composeGenres(objectFilters) {
     console.log("COMPOSE GENRES!!");
 
     var query = `SELECT * FROM
@@ -628,17 +627,17 @@ function composeGenres(objectFilters){
                   WHERE 
                     (p.local_name = "genre" AND v2.value = "${objectFilters.filmGenres[0]}")`
 
-    if(objectFilters.filmGenres.length > 1){
+    if (objectFilters.filmGenres.length > 1) {
         objectFilters.filmGenres.forEach((genre, index) => {
 
-            if(index > 0){
+            if (index > 0) {
                 query += ` OR (p.local_name = "genre" AND v2.value = "${genre}")`
             }
         });
     }
 
 
-    query+= `) 
+    query += `) 
                 ) as film_con_generi
                 `;
 
@@ -648,7 +647,7 @@ function composeGenres(objectFilters){
     return query;
 }
 
-function composeProductionCountry(objectFilters){
+function composeProductionCountry(objectFilters) {
     console.log("COMPOSE PRODUCTION COUNTRY!!");
 
     var query = `SELECT * FROM
@@ -671,7 +670,7 @@ function composeProductionCountry(objectFilters){
     return query;
 }
 
-function composeSynopsis(objectFilters){
+function composeSynopsis(objectFilters) {
     console.log("COMPOSE SYNOPSIS!!");
 
     var query = `SELECT * FROM
@@ -693,21 +692,459 @@ function composeSynopsis(objectFilters){
     return query;
 }
 
-function checkFilmTitle(objectFilters){
+function composeStyle(objectFilters) {
+    console.log("COMPOSE STYLE!!");
+
+    var query = `SELECT *
+                 from (
+                        SELECT
+                            v.value_resource_id as resource_id
+                        FROM (
+                                SELECT
+                                    v.value_resource_id as copy_resource_id
+                                from (`;
+
+    var style_parts = [false, false, false, false, false, false, false, false];
+
+    if (objectFilters.filmLighting !== [] && objectFilters.filmLighting !== null && objectFilters.filmLighting.length > 0) {
+        query += `SELECT
+                            distinct uc_resource_id
+                        from (
+                            SELECT
+                                    uc.resource_id as uc_resource_id,
+                                    uc.property_id as uc_property_id,
+                                    uc.local_name as uc_local_name,
+                                    uc.value_resource_id as uc_value_resource_id,
+                                    uc.value as uc_value
+                                from (
+                                        SELECT
+                                            v.resource_id,
+                                            v.property_id,
+                                            p.local_name,
+                                            v.value_resource_id,
+                                            v.value
+                                        FROM
+                                            value v
+                                            join property p on v.property_id = p.id
+                                        where
+                                            local_name = "hasCompositionalAspectsData"
+                                    ) as uc
+                                    join value v1 on uc.value_resource_id = v1.resource_id
+                                    left join property p2 on v1.property_id = p2.id
+                                where  ( `;
+
+        objectFilters.filmLighting.forEach((light, index) => {
+
+            if (index > 0) {
+                query += ` OR `;
+            }
+            query += `(
+                              p2.local_name = "lighting"
+                              and v1.value = "${light}"
+                          )`
+
+        });
+
+        query += `)
+                                    
+                           ) as filtered_uc`;
+
+
+        style_parts[0] = true;
+    }
+
+    if (objectFilters.filmCameraAngle !== [] && objectFilters.filmCameraAngle !== null && objectFilters.filmCameraAngle.length > 0) {
+        if (checkForTrueUpToIndex(style_parts, 1)) {
+            query += "\nINTERSECT\n";
+        }
+
+        query += `SELECT
+                            distinct uc_resource_id
+                        from (
+                            SELECT
+                                    uc.resource_id as uc_resource_id,
+                                    uc.property_id as uc_property_id,
+                                    uc.local_name as uc_local_name,
+                                    uc.value_resource_id as uc_value_resource_id,
+                                    uc.value as uc_value
+                                from (
+                                        SELECT
+                                            v.resource_id,
+                                            v.property_id,
+                                            p.local_name,
+                                            v.value_resource_id,
+                                            v.value
+                                        FROM
+                                            value v
+                                            join property p on v.property_id = p.id
+                                        where
+                                            local_name = "hasCompositionalAspectsData"
+                                    ) as uc
+                                    join value v1 on uc.value_resource_id = v1.resource_id
+                                    left join property p2 on v1.property_id = p2.id
+                                where  ( `;
+
+        objectFilters.filmCameraAngle.forEach((angle, index) => {
+
+            if (index > 0) {
+                query += ` OR `;
+            }
+            query += `(
+                              p2.local_name = "cameraAngle"
+                              and v1.value = "${angle}"
+                          )`
+
+        });
+
+        query += `)
+                                    
+                           ) as filtered_uc`;
+
+
+        style_parts[1] = true;
+    }
+
+    if (objectFilters.filmTilt !== [] && objectFilters.filmTilt !== null && objectFilters.filmTilt.length > 0) {
+        if (checkForTrueUpToIndex(style_parts, 2)) {
+            query += "\nINTERSECT\n";
+        }
+
+        query += `SELECT
+                            distinct uc_resource_id
+                        from (
+                            SELECT
+                                    uc.resource_id as uc_resource_id,
+                                    uc.property_id as uc_property_id,
+                                    uc.local_name as uc_local_name,
+                                    uc.value_resource_id as uc_value_resource_id,
+                                    uc.value as uc_value
+                                from (
+                                        SELECT
+                                            v.resource_id,
+                                            v.property_id,
+                                            p.local_name,
+                                            v.value_resource_id,
+                                            v.value
+                                        FROM
+                                            value v
+                                            join property p on v.property_id = p.id
+                                        where
+                                            local_name = "hasCompositionalAspectsData"
+                                    ) as uc
+                                    join value v1 on uc.value_resource_id = v1.resource_id
+                                    left join property p2 on v1.property_id = p2.id
+                                where  ( `;
+
+        objectFilters.filmTilt.forEach((tilt, index) => {
+
+            if (index > 0) {
+                query += ` OR `;
+            }
+            query += `(
+                              p2.local_name = "tilt"
+                              and v1.value = "${tilt}"
+                          )`
+
+        });
+
+        query += `)
+                                    
+                           ) as filtered_uc`;
+
+
+        style_parts[2] = true;
+    }
+
+    if (objectFilters.filmCameraShotType !== [] && objectFilters.filmCameraShotType !== null && objectFilters.filmCameraShotType.length > 0) {
+        if (checkForTrueUpToIndex(style_parts, 3)) {
+            query += "\nINTERSECT\n";
+        }
+
+        query += `SELECT
+                            distinct uc_resource_id
+                        from (
+                            SELECT
+                                    uc.resource_id as uc_resource_id,
+                                    uc.property_id as uc_property_id,
+                                    uc.local_name as uc_local_name,
+                                    uc.value_resource_id as uc_value_resource_id,
+                                    uc.value as uc_value
+                                from (
+                                        SELECT
+                                            v.resource_id,
+                                            v.property_id,
+                                            p.local_name,
+                                            v.value_resource_id,
+                                            v.value
+                                        FROM
+                                            value v
+                                            join property p on v.property_id = p.id
+                                        where
+                                            local_name = "hasCompositionalAspectsData"
+                                    ) as uc
+                                    join value v1 on uc.value_resource_id = v1.resource_id
+                                    left join property p2 on v1.property_id = p2.id
+                                where  ( `;
+
+        objectFilters.filmCameraShotType.forEach((shot_type, index) => {
+
+            if (index > 0) {
+                query += ` OR `;
+            }
+            query += `(
+                              p2.local_name = "cameraShotType"
+                              and v1.value = "${shot_type}"
+                          )`
+
+        });
+
+        query += `)
+                                    
+                           ) as filtered_uc`;
+
+
+        style_parts[3] = true;
+    }
+
+    if (objectFilters.filmMatte !== [] && objectFilters.filmMatte !== null && objectFilters.filmMatte.length > 0) {
+        if (checkForTrueUpToIndex(style_parts, 4)) {
+            query += "\nINTERSECT\n";
+        }
+
+        query += `SELECT
+                            distinct uc_resource_id
+                        from (
+                            SELECT
+                                    uc.resource_id as uc_resource_id,
+                                    uc.property_id as uc_property_id,
+                                    uc.local_name as uc_local_name,
+                                    uc.value_resource_id as uc_value_resource_id,
+                                    uc.value as uc_value
+                                from (
+                                        SELECT
+                                            v.resource_id,
+                                            v.property_id,
+                                            p.local_name,
+                                            v.value_resource_id,
+                                            v.value
+                                        FROM
+                                            value v
+                                            join property p on v.property_id = p.id
+                                        where
+                                            local_name = "hasCompositionalAspectsData"
+                                    ) as uc
+                                    join value v1 on uc.value_resource_id = v1.resource_id
+                                    left join property p2 on v1.property_id = p2.id
+                                where  ( `;
+
+        objectFilters.filmMatte.forEach((matte, index) => {
+
+            if (index > 0) {
+                query += ` OR `;
+            }
+            query += `(
+                              p2.local_name = "hasMatte"
+                              and v1.value = "${matte}"
+                          )`
+
+        });
+
+        query += `)
+                                    
+                           ) as filtered_uc`;
+
+
+        style_parts[4] = true;
+    }
+
+    if (objectFilters.filmPointOfView !== [] && objectFilters.filmPointOfView !== null && objectFilters.filmPointOfView.length > 0) {
+        if (checkForTrueUpToIndex(style_parts, 5)) {
+            query += "\nINTERSECT\n";
+        }
+
+        query += `SELECT
+                            distinct uc_resource_id
+                        from (
+                            SELECT
+                                    uc.resource_id as uc_resource_id,
+                                    uc.property_id as uc_property_id,
+                                    uc.local_name as uc_local_name,
+                                    uc.value_resource_id as uc_value_resource_id,
+                                    uc.value as uc_value
+                                from (
+                                        SELECT
+                                            v.resource_id,
+                                            v.property_id,
+                                            p.local_name,
+                                            v.value_resource_id,
+                                            v.value
+                                        FROM
+                                            value v
+                                            join property p on v.property_id = p.id
+                                        where
+                                            local_name = "hasCompositionalAspectsData"
+                                    ) as uc
+                                    join value v1 on uc.value_resource_id = v1.resource_id
+                                    left join property p2 on v1.property_id = p2.id
+                                where  ( `;
+
+        objectFilters.filmPointOfView.forEach((pov, index) => {
+
+            if (index > 0) {
+                query += ` OR `;
+            }
+            query += `(
+                              p2.local_name = "pointOfView"
+                              and v1.value = "${pov}"
+                          )`
+
+        });
+
+        query += `)
+                                    
+                           ) as filtered_uc`;
+
+
+        style_parts[5] = true;
+    }
+
+    if (objectFilters.filmCameraMotion !== [] && objectFilters.filmCameraMotion !== null && objectFilters.filmCameraMotion.length > 0) {
+        if (checkForTrueUpToIndex(style_parts, 6)) {
+            query += "\nINTERSECT\n";
+        }
+
+        query += `SELECT
+                            distinct uc_resource_id
+                        from (
+                            SELECT
+                                    uc.resource_id as uc_resource_id,
+                                    uc.property_id as uc_property_id,
+                                    uc.local_name as uc_local_name,
+                                    uc.value_resource_id as uc_value_resource_id,
+                                    uc.value as uc_value
+                                from (
+                                        SELECT
+                                            v.resource_id,
+                                            v.property_id,
+                                            p.local_name,
+                                            v.value_resource_id,
+                                            v.value
+                                        FROM
+                                            value v
+                                            join property p on v.property_id = p.id
+                                        where
+                                            local_name = "hasCompositionalAspectsData"
+                                    ) as uc
+                                    join value v1 on uc.value_resource_id = v1.resource_id
+                                    left join property p2 on v1.property_id = p2.id
+                                where  ( `;
+
+        objectFilters.filmCameraMotion.forEach((motion, index) => {
+
+            if (index > 0) {
+                query += ` OR `;
+            }
+            query += `(
+                              p2.local_name = "cameraMotion"
+                              and v1.value = "${motion}"
+                          )`
+
+        });
+
+        query += `)
+                                    
+                           ) as filtered_uc`;
+
+
+        style_parts[6] = true;
+    }
+
+    if (objectFilters.filmColouring !== [] && objectFilters.filmColouring !== null && objectFilters.filmColouring.length > 0) {
+        if (checkForTrueUpToIndex(style_parts, 7)) {
+            query += "\nINTERSECT\n";
+        }
+
+        query += `SELECT
+                            distinct uc_resource_id
+                        from (
+                            SELECT
+                                    uc.resource_id as uc_resource_id,
+                                    uc.property_id as uc_property_id,
+                                    uc.local_name as uc_local_name,
+                                    uc.value_resource_id as uc_value_resource_id,
+                                    uc.value as uc_value
+                                from (
+                                        SELECT
+                                            v.resource_id,
+                                            v.property_id,
+                                            p.local_name,
+                                            v.value_resource_id,
+                                            v.value
+                                        FROM
+                                            value v
+                                            join property p on v.property_id = p.id
+                                        where
+                                            local_name = "hasCompositionalAspectsData"
+                                    ) as uc
+                                    join value v1 on uc.value_resource_id = v1.resource_id
+                                    left join property p2 on v1.property_id = p2.id
+                                where  ( `;
+
+        objectFilters.filmColouring.forEach((colouring, index) => {
+
+            if (index > 0) {
+                query += ` OR `;
+            }
+            query += `(
+                              p2.local_name = "colouring"
+                              and v1.value = "${colouring}"
+                          )`
+
+        });
+
+        query += `)
+                                    
+                           ) as filtered_uc`;
+
+
+        style_parts[7] = true;
+    }
+
+    query += `
+                    ) as uc
+                    join value v on uc.uc_resource_id = v.resource_id
+                    left join property p on v.property_id = p.id
+                where
+                    p.local_name = "hasLinkedFilmCopyCatalogueRecord"
+            ) as copy
+            join value v on copy.copy_resource_id = v.resource_id
+            left join property p on v.property_id = p.id
+        where
+            p.local_name = "hasLinkedFilmCatalogueRecord"
+    ) as film_with_style
+                `;
+
+    console.log("QUERY");
+    console.log(query);
+
+    return query;
+}
+
+function checkFilmTitle(objectFilters) {
     return (objectFilters.titleTextFilmTitle !== '' && objectFilters.titleTextFilmTitle !== []) ||
         (objectFilters.titleTypeFilmTitle !== '' && objectFilters.titleTypeFilmTitle !== []) ||
         (objectFilters.titleLanguageFilmTitle !== '' && objectFilters.titleLanguageFilmTitle !== []) ||
         (objectFilters.titleOtherCharacterizationFilmTitle !== '' && objectFilters.titleOtherCharacterizationFilmTitle !== []);
 }
 
-function checkSerieTitle(objectFilters){
+function checkSerieTitle(objectFilters) {
     return (objectFilters.titleTextSerieTitle !== '' && objectFilters.titleTextSerieTitle !== []) ||
         (objectFilters.titleTypeSerieTitle !== '' && objectFilters.titleTypeSerieTitle !== []) ||
         (objectFilters.titleLanguageSerieTitle !== '' && objectFilters.titleLanguageSerieTitle !== []) ||
         (objectFilters.titleOtherCharacterizationSerieTitle !== '' && objectFilters.titleOtherCharacterizationSerieTitle !== []);
 }
 
-function checkEpisodeSerieTitle(objectFilters){
+function checkEpisodeSerieTitle(objectFilters) {
     return (objectFilters.titleTextEpisodeSerieTitle !== '' && objectFilters.titleTextEpisodeSerieTitle !== []) ||
         (objectFilters.titleTypeEpisodeSerieTitle !== '' && objectFilters.titleTypeEpisodeSerieTitle !== []) ||
         (objectFilters.titleLanguageEpisodeSerieTitle !== '' && objectFilters.titleLanguageEpisodeSerieTitle !== []) ||
@@ -720,7 +1157,7 @@ function checkTitle(objectFilters) {
 
     console.log("checkEpisodeSerieTitle(objectFilters): " + checkEpisodeSerieTitle(objectFilters));
 
-    return checkFilmTitle(objectFilters) || checkSerieTitle(objectFilters) || checkEpisodeSerieTitle(objectFilters) || (objectFilters.copyTitleText !== '' && objectFilters.copyTitleText !== null) ;
+    return checkFilmTitle(objectFilters) || checkSerieTitle(objectFilters) || checkEpisodeSerieTitle(objectFilters) || (objectFilters.copyTitleText !== '' && objectFilters.copyTitleText !== null);
 }
 
 function checkDirector(objectFilters) {
@@ -753,6 +1190,32 @@ function checkProductionCountry(objectFilters) {
 
 function checkSynopsis(objectFilters) {
     return objectFilters.filmSynopsis !== '' && objectFilters.filmSynopsis !== null;
+}
+
+function checkStyle(objectFilters) {
+    return (objectFilters.filmLighting !== [] && objectFilters.filmLighting !== null && objectFilters.filmLighting.length > 0) ||
+        (objectFilters.filmCameraAngle !== [] && objectFilters.filmCameraAngle !== null && objectFilters.filmCameraAngle.length > 0) ||
+        (objectFilters.filmTilt !== [] && objectFilters.filmTilt !== null && objectFilters.filmTilt.length > 0) ||
+        (objectFilters.filmCameraShotType !== [] && objectFilters.filmCameraShotType !== null && objectFilters.filmCameraShotType.length > 0) ||
+        (objectFilters.filmMatte !== [] && objectFilters.filmMatte !== null && objectFilters.filmMatte.length > 0) ||
+        (objectFilters.filmPointOfView !== [] && objectFilters.filmPointOfView !== null && objectFilters.filmPointOfView.length > 0) ||
+        (objectFilters.filmCameraMotion !== [] && objectFilters.filmCameraMotion !== null && objectFilters.filmCameraMotion.length > 0) ||
+        (objectFilters.filmColouring !== [] && objectFilters.filmColouring !== null && objectFilters.filmColouring.length > 0);
+}
+
+function checkForTrueUpToIndex(arr, i) {
+    if (i < 0 || i >= arr.length) {
+        // Se l'indice è fuori dai limiti dell'array, restituisci falso.
+        return false;
+    }
+
+    for (let j = 0; j < i; j++) {
+        if (arr[j] === true) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 module.exports = {
@@ -790,7 +1253,11 @@ module.exports = {
 
     //Sinossi,
     checkSynopsis,
-    composeSynopsis
+    composeSynopsis,
 
+    //Stile
+    checkStyle,
+    composeStyle,
 
+    checkForTrueUpToIndex,
 };

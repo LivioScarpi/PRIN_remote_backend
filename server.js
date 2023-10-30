@@ -3,7 +3,7 @@ const bodyParser = require("body-parser");
 const mysql = require("mysql");
 const { parse } = require("url");
 
-const production = false;
+const production = true;
 const functions = require("./composeFilmQuery");
 
 const app = express();
@@ -42,11 +42,11 @@ app.get("/server/get_schede_av_of_film", (req, res) => {
     getSchedeAVofFilm(res, req);
 });
 
-app.get("/server/get_unita_catalografiche_of_film", (req, res) => {
+app.post("/server/get_unita_catalografiche_of_film", (req, res) => {
     getUnitaCatalograficheOfFilm(res, req);
 });
 
-app.get("/server/get_schede_luoghi_of_uc", (req, res) => {
+app.post("/server/get_schede_luoghi_of_uc", (req, res) => {
     getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req);
 });
 
@@ -1375,7 +1375,7 @@ function searchFilm(res, req) {
         });
 
         //TODO: manca "linguaggio e stile come false"
-        var query_parts = [false, false, false, false, false, false, false, false, false]
+        var query_parts = [false, false, false, false, false, false, false, false, false, false]
         var query = `SELECT DISTINCT * FROM (\n`;
 
         if (functions.checkTitle(body)) {
@@ -1386,7 +1386,7 @@ function searchFilm(res, req) {
 
 
         if (functions.checkDirector(body)) {
-            if (checkForTrueUpToIndex(query_parts, 1)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 1)) {
                 query += "\nINTERSECT\n";
             }
 
@@ -1395,7 +1395,7 @@ function searchFilm(res, req) {
         }
 
         if (functions.checkSubject(body)) {
-            if (checkForTrueUpToIndex(query_parts, 2)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 2)) {
                 query += "\nINTERSECT\n";
             }
 
@@ -1404,7 +1404,7 @@ function searchFilm(res, req) {
         }
 
         if (functions.checkScreenwriter(body)) {
-            if (checkForTrueUpToIndex(query_parts, 3)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 3)) {
                 query += "\nINTERSECT\n";
             }
 
@@ -1413,7 +1413,7 @@ function searchFilm(res, req) {
         }
 
         if (functions.checkCredits(body)) {
-            if (checkForTrueUpToIndex(query_parts, 4)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 4)) {
                 query += "\nINTERSECT\n";
             }
 
@@ -1422,7 +1422,7 @@ function searchFilm(res, req) {
         }
 
         if (functions.checkProductionName(body)) {
-            if (checkForTrueUpToIndex(query_parts, 5)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 5)) {
                 query += "\nINTERSECT\n";
             }
 
@@ -1432,7 +1432,7 @@ function searchFilm(res, req) {
 
         console.log("TOCCA AI GENERI");
         if (functions.checkGenres(body)) {
-            if (checkForTrueUpToIndex(query_parts, 6)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 6)) {
                 query += "\nINTERSECT\n";
             }
 
@@ -1441,7 +1441,7 @@ function searchFilm(res, req) {
         }
 
         if (functions.checkProductionCountry(body)) {
-            if (checkForTrueUpToIndex(query_parts, 7)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 7)) {
                 query += "\nINTERSECT\n";
             }
 
@@ -1450,12 +1450,21 @@ function searchFilm(res, req) {
         }
 
         if (functions.checkSynopsis(body)) {
-            if (checkForTrueUpToIndex(query_parts, 8)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 8)) {
                 query += "\nINTERSECT\n";
             }
 
             query += functions.composeSynopsis(body);
             query_parts[8] = true;
+        }
+
+        if (functions.checkStyle(body)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 9)) {
+                query += "\nINTERSECT\n";
+            }
+
+            query += functions.composeStyle(body);
+            query_parts[9] = true;
         }
 
         query += '\n) AS films';
@@ -1713,19 +1722,4 @@ function areAllFiltersEmpty(obj) {
         }
     }
     return true;
-}
-
-function checkForTrueUpToIndex(arr, i) {
-    if (i < 0 || i >= arr.length) {
-        // Se l'indice è fuori dai limiti dell'array, restituisci falso.
-        return false;
-    }
-
-    for (let j = 0; j < i; j++) {
-        if (arr[j] === true) {
-            return true;
-        }
-    }
-
-    return false;
 }
