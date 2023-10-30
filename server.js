@@ -61,6 +61,8 @@ const server = http.createServer((req, res) => {
             getFilmFilters(res);
         } else if (urlPath === "//search_films") {
             searchFilm(res, req);
+        } else if (urlPath === "//get_locus_of_film") {
+            getLocusOfFilmByFilmID(res, req);
         } else if (urlPath === "//get_resource_from_id") {
             try {
                 var resource_id = req.body.resource_id;
@@ -1550,62 +1552,157 @@ function searchFilm(res, req) {
                 }
 
             });
-        /*
-
-        var externalQuery = `
-    WITH RECURSIVE test as (
-        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
-        FROM value as v1
-        WHERE v1.resource_id IN (${query})
-
-    UNION
-    (
-      SELECT
-        v2.resource_id,
-        v2.property_id,
-        v2.value_resource_id,
-        v2.value,
-        v2.uri
-      FROM
-        value as v2
-        INNER JOIN test ON test.value_resource_id = v2.resource_id
-    )
-    )
-    select
-    test.resource_id,
-    test.property_id,
-    test.value_resource_id,
-    test.value,
-    property.local_name as property_name,
-    property.label as property_label,
-    vocabulary.prefix as vocabulary_prefix,
-    r2.local_name,
-    r2.label,
-    m.storage_id as media_link,
-    test.uri as uri_link
-    from
-    test
-    join property on test.property_id = property.id
-    join vocabulary on property.vocabulary_id = vocabulary.id
-    join resource as r1 on test.resource_id = r1.id
-    join resource_class as r2 on r1.resource_class_id = r2.id
-    left join media as m on test.resource_id = m.item_id;
-          `;
-
-        //TODO: implementare query qua LA QUERY
-
-        console.log("\n\n\nEXTERNAL QUERY");
-        console.log(externalQuery);
-
-        makeInnerQuery(con, res, externalQuery, list);
-
-        //res.writeHead(200, {"Content-Type": "application/json"});
-        //res.end(
-        //    JSON.stringify({})
-        //);
     }
-    */
+}
 
+
+//TODO: implementare funzione che restituisce i luoghi a partire dal film
+function getLocusOfFilmByFilmID(res, req) {
+    var body = JSON.parse(JSON.stringify(req.body));
+
+    console.log("OBJECT FILTERS");
+    console.log(body);
+
+    if (!body.film_id) {
+        console.log("ERROR: missing film id");
+        res.writeHead(200, {"Content-Type": "application/json"});
+        res.end(
+            JSON.stringify([])
+        );
+    } else {
+        console.log("Film ID present");
+        var con = mysql.createConnection({
+            host: "localhost",
+            user: "root",
+            password: "omekas_prin_2022",
+            database: dbname
+        });
+
+
+        const queries = [
+            `START TRANSACTION`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+            SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id
+            FROM value v
+            JOIN property p ON v.property_id = p.id;`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_rappresentazioni_luogo_film AS
+            SELECT * FROM (
+                SELECT v2.resource_id
+                FROM (
+                    SELECT v1.resource_id
+                    FROM (
+                        SELECT v.resource_id
+                        FROM \`value\` v
+                        JOIN property p ON v.property_id = p.id
+                        WHERE p.local_name = "hasLinkedFilmCatalogueRecord"
+                        AND v.value_resource_id = ${body.film_id}
+                    ) as copie_film
+                    JOIN value v1 ON copie_film.resource_id = v1.value_resource_id
+                    JOIN property p ON v1.property_id = p.id
+                    WHERE p.local_name = "hasLinkedFilmCopyCatalogueRecord"
+                ) as uc
+                JOIN value v2 ON uc.resource_id = v2.value_resource_id
+                JOIN property p ON v2.property_id = p.id
+                WHERE p.local_name = "hasLinkedFilmUnitCatalogueRecord"
+            ) as rappresentazione_luogo;`,
+
+            `SELECT * FROM (
+                SELECT value_resource_id
+                FROM (
+                    SELECT * FROM (
+                        SELECT value_resource_id as luoghi_resource_id
+                        FROM tabella_unica
+                        WHERE local_name = "hasPlacesData"
+                        AND resource_id IN (SELECT * FROM tabella_rappresentazioni_luogo_film)
+                    ) as luoghi_property
+                    JOIN tabella_unica ON luoghi_property.luoghi_resource_id = tabella_unica.resource_id
+                    WHERE local_name = "placeRepresentationHasCameraPlacement"
+                ) as luoghi_posizionamento_camera
+            
+                UNION
+            
+                SELECT value_resource_id as locus_resource_id
+                FROM (
+                    SELECT * FROM (
+                        SELECT value_resource_id as dettaglio_resource_id
+                        FROM (
+                            SELECT * FROM (
+                                SELECT value_resource_id as luoghi_resource_id
+                                FROM tabella_unica
+                                WHERE local_name = "hasPlacesData"
+                                AND resource_id IN (SELECT * FROM tabella_rappresentazioni_luogo_film)
+                            ) as luoghi_property
+                            JOIN tabella_unica ON luoghi_property.luoghi_resource_id = tabella_unica.resource_id
+                            WHERE local_name = "hasSinglePlaceRepresentationData"
+                        ) as luoghi_posizionamento_camera
+                    ) as dettagli_luoghhi
+                    JOIN tabella_unica ON dettagli_luoghhi.dettaglio_resource_id = tabella_unica.resource_id
+                    WHERE local_name = "placeRepresentationHasDisplayedObject"
+                    OR local_name = "placeRepresentationHasRepresentedNarrativePlace"
+                ) as locus
+            
+                UNION
+            
+                SELECT value_resource_id
+                FROM (
+                    SELECT * FROM (
+                        SELECT value_resource_id as contesto_resource_id
+                        FROM tabella_unica
+                        WHERE local_name = "hasContextualElementsData"
+                        AND resource_id IN (SELECT * FROM tabella_rappresentazioni_luogo_film)
+                    ) as elementi_contestuali
+                    JOIN tabella_unica ON elementi_contestuali.contesto_resource_id = tabella_unica.resource_id
+                    WHERE local_name = "placeRepresentationHasContextualNarrativePlace"
+                ) as luoghi_narrativi
+            ) as luoghi_nel_rappresentazione_luogo JOIN value on luoghi_nel_rappresentazione_luogo.value_resource_id = value.resource_id where property_id = 1;`,
+
+            `DROP TEMPORARY TABLE tabella_unica;`,
+
+            `DROP TEMPORARY TABLE tabella_rappresentazioni_luogo_film;`,
+
+            `COMMIT;`,
+            // Aggiungi altre query qui
+        ];
+
+        //TODO: manca "linguaggio e stile come false"
+
+        var results = []; // Array per salvare i risultati della terza query
+
+        function executeBatchQueries(queries, index = 0) {
+            if (index < queries.length) {
+                const query = queries[index];
+                con.query(query, (error, queryResults) => {
+                    if (error) {
+                        con.rollback(() => {
+                            console.error('Errore nell\'esecuzione della query:', error);
+                            con.end();
+                        });
+                    } else {
+                        console.log('Query eseguita con successo:', query);
+                        if (index === 3) { // Verifica se questa è la terza query (l'indice 2)
+                            console.log('Risultati della terza query:', queryResults);
+                            results = queryResults;
+                        }
+                    }
+                    executeBatchQueries(queries, index + 1);
+                });
+            } else {
+                // Chiudi la connessione quando tutte le query sono state eseguite
+                con.end();
+                // Restituisci i risultati della terza query al frontend
+                console.log('Risultati finali da restituire al frontend:', results);
+
+                res.writeHead(200, {"Content-Type": "application/json"});
+                res.end(
+                    JSON.stringify(results)
+                );
+
+            }
+        }
+
+        executeBatchQueries(queries);
     }
 }
 
