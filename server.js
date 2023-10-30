@@ -51,11 +51,11 @@ app.get("/server/get_film_filters", (req, res) => {
     getFilmFilters(res);
 });
 
-app.get("/server/search_films", (req, res) => {
+app.post("/server/search_films", (req, res) => {
     searchFilm(res, req);
 });
 
-app.get("/server/get_locus_of_film", (req, res) => {
+app.post("/server/get_locus_of_film", (req, res) => {
     getLocusOfFilmByFilmID(res, req);
 });
 
