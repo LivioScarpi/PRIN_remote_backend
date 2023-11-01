@@ -1130,21 +1130,58 @@ function composeStyle(objectFilters) {
     return query;
 }
 
-function composeDateTypology(objectFilters) {
-    console.log("COMPOSE DATE TYPOLOGY!!");
+function composeDate(objectFilters) {
+    console.log("COMPOSE DATE!!");
 
-    var query = `SELECT * FROM
-                    (
-                        SELECT v1.resource_id
-                        FROM value v1
-                        WHERE v1.value_resource_id IN (
-                            SELECT v2.resource_id
-                            FROM value v2
-                                     JOIN property p ON v2.property_id = p.id
-                            WHERE
-                                (p.local_name = "dateTypology" AND v2.value = "${objectFilters.filmDateTypology}")
-                        )
-                    ) as film_con_tipologia_data`;
+    var parts = [false, false];
+
+    var query = `SELECT * FROM (
+                    SELECT v.resource_id FROM value v JOIN property p on v.property_id = p.id where 
+                    p.local_name = "hasDatingData" AND v.value_resource_id IN (`;
+
+
+    if(checkStartDate(objectFilters) || checkEndDate(objectFilters)) {
+        var q =  `SELECT * FROM (
+                    SELECT v.resource_id
+                    FROM value v join property p on v.property_id = p.id
+                    WHERE p.local_name = "date"
+                      AND value REGEXP '^[0-9]+$'
+                      AND CAST(value AS SIGNED) `
+
+        if(checkStartDate(objectFilters) && checkEndDate(objectFilters)) {
+            q += ` BETWEEN ${objectFilters.filmStartDate} AND ${objectFilters.filmEndDate} `;
+        } else if(checkStartDate(objectFilters)) {
+            q += ` >= ${objectFilters.filmStartDate} `;
+        } else {
+            q += ` <= ${objectFilters.filmEndDate} `;
+        }
+
+           q+= `) AS date_nell_intervallo`;
+
+        query += q;
+
+        parts[0] = true;
+    }
+
+    if(checkDateTypology(objectFilters)){
+        if(parts[0])
+        {
+            query += `\nINTERSECT \n`;
+        }
+
+        query += `SELECT v2.resource_id
+                      FROM value v2
+                      JOIN property p ON v2.property_id = p.id
+                      WHERE 
+                        (p.local_name = "dateTypology" AND v2.value = "${objectFilters.filmDateTypology}")
+                      
+                    `;
+
+        parts[1] = true;
+
+    }
+
+    query += `)) as film_con_data`;
 
     console.log("QUERY");
     console.log(query);
@@ -1194,8 +1231,20 @@ function checkScreenwriter(objectFilters) {
     return objectFilters.filmScreenwriterName !== '' && objectFilters.filmScreenwriterName !== null;
 }
 
+function checkDate(objectFilters) {
+    return checkDateTypology(objectFilters) || checkStartDate(objectFilters) || checkEndDate(objectFilters);
+}
+
 function checkDateTypology(objectFilters) {
-    return objectFilters.filmDateTypology !== '' && objectFilters.filmDateTypology !== null;
+    return (objectFilters.filmDateTypology !== '' && objectFilters.filmDateTypology !== null);
+}
+
+function checkStartDate(objectFilters) {
+    return (objectFilters.filmStartDate !== '' && objectFilters.filmStartDate !== null);
+}
+
+function checkEndDate(objectFilters) {
+    return (objectFilters.filmEndDate !== '' && objectFilters.filmEndDate !== null);
 }
 
 function checkCredits(objectFilters) {
@@ -1287,7 +1336,10 @@ module.exports = {
 
     //Tipologia data
     checkDateTypology,
-    composeDateTypology,
+    checkStartDate,
+    checkEndDate,
+    checkDate,
+    composeDate,
 
     checkForTrueUpToIndex,
 };

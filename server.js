@@ -3,7 +3,7 @@ const bodyParser = require("body-parser");
 const mysql = require("mysql");
 const { parse } = require("url");
 
-const production = true;
+const production = false;
 const functions = require("./composeFilmQuery");
 
 const app = express();
@@ -1466,12 +1466,12 @@ function searchFilm(res, req) {
             query_parts[9] = true;
         }
 
-        if (functions.checkDateTypology(body)) {
+        if (functions.checkDate(body)) {
             if (functions.checkForTrueUpToIndex(query_parts, 10)) {
                 query += "\nINTERSECT\n";
             }
 
-            query += functions.composeDateTypology(body);
+            query += functions.composeDate(body);
             query_parts[10] = true;
         }
 
