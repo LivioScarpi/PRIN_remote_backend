@@ -1130,6 +1130,28 @@ function composeStyle(objectFilters) {
     return query;
 }
 
+function composeDateTypology(objectFilters) {
+    console.log("COMPOSE DATE TYPOLOGY!!");
+
+    var query = `SELECT * FROM
+                    (
+                        SELECT v1.resource_id
+                        FROM value v1
+                        WHERE v1.value_resource_id IN (
+                            SELECT v2.resource_id
+                            FROM value v2
+                                     JOIN property p ON v2.property_id = p.id
+                            WHERE
+                                (p.local_name = "dateTypology" AND v2.value = "${objectFilters.filmDateTypology}")
+                        )
+                    ) as film_con_tipologia_data`;
+
+    console.log("QUERY");
+    console.log(query);
+
+    return query;
+}
+
 function checkFilmTitle(objectFilters) {
     return (objectFilters.titleTextFilmTitle !== '' && objectFilters.titleTextFilmTitle !== []) ||
         (objectFilters.titleTypeFilmTitle !== '' && objectFilters.titleTypeFilmTitle !== []) ||
@@ -1170,6 +1192,10 @@ function checkSubject(objectFilters) {
 
 function checkScreenwriter(objectFilters) {
     return objectFilters.filmScreenwriterName !== '' && objectFilters.filmScreenwriterName !== null;
+}
+
+function checkDateTypology(objectFilters) {
+    return objectFilters.filmDateTypology !== '' && objectFilters.filmDateTypology !== null;
 }
 
 function checkCredits(objectFilters) {
@@ -1258,6 +1284,10 @@ module.exports = {
     //Stile
     checkStyle,
     composeStyle,
+
+    //Tipologia data
+    checkDateTypology,
+    composeDateTypology,
 
     checkForTrueUpToIndex,
 };

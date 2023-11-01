@@ -13,7 +13,7 @@ const portNumber = production ? 3004 : 3003;
 const dbname = production ? "omekas_production_db" : "omekas_db";
 
 const corsOptions = {
-    origin: "http://localhost:3000", // Sostituisci con l'URL del tuo frontend
+    origin: '*', // Sostituisci con l'URL del tuo frontend
 };
 
 app.use(cors(corsOptions));
@@ -1374,8 +1374,7 @@ function searchFilm(res, req) {
             database: dbname
         });
 
-        //TODO: manca "linguaggio e stile come false"
-        var query_parts = [false, false, false, false, false, false, false, false, false, false]
+        var query_parts = [false, false, false, false, false, false, false, false, false, false, false]
         var query = `SELECT DISTINCT * FROM (\n`;
 
         if (functions.checkTitle(body)) {
@@ -1465,6 +1464,15 @@ function searchFilm(res, req) {
 
             query += functions.composeStyle(body);
             query_parts[9] = true;
+        }
+
+        if (functions.checkDateTypology(body)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 10)) {
+                query += "\nINTERSECT\n";
+            }
+
+            query += functions.composeDateTypology(body);
+            query_parts[10] = true;
         }
 
         query += '\n) AS films';
