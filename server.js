@@ -1377,7 +1377,7 @@ function searchFilm(res, req) {
             database: dbname
         });
 
-        var query_parts = [false, false, false, false, false, false, false, false, false, false, false]
+        var query_parts = [false, false, false, false, false, false, false, false, false, false, false, false];
         var query = `SELECT DISTINCT * FROM (\n`;
 
         if (functions.checkTitle(body)) {
@@ -1476,6 +1476,15 @@ function searchFilm(res, req) {
 
             query += functions.composeDate(body);
             query_parts[10] = true;
+        }
+
+        if (functions.checkCastMember(body)) {
+            if (functions.checkForTrueUpToIndex(query_parts, 11)) {
+                query += "\nINTERSECT\n";
+            }
+
+            query += functions.composeCastMember(body);
+            query_parts[11] = true;
         }
 
         query += '\n) AS films';

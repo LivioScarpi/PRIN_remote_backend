@@ -471,7 +471,7 @@ function composeDirector(objectFilters) {
     var title_parts = [false, false];
     if (objectFilters.filmDirectorName !== '' && objectFilters.filmDirectorName !== null) {
         const directorName = `
-        (p.local_name = "directorName" AND v2.value = "${objectFilters.filmDirectorName}")\n`;
+        (p.local_name = "directorName" AND v2.value LIKE "%${objectFilters.filmDirectorName}%")\n`;
 
         query += directorName;
         title_parts[0] = true;
@@ -484,7 +484,7 @@ function composeDirector(objectFilters) {
         }
 
         const directorOtherName = `
-        (p.local_name = "otherDirectorName" AND v2.value = "${objectFilters.filmDirectorOtherName}")\n`;
+        (p.local_name = "otherDirectorName" AND v2.value LIKE "%${objectFilters.filmDirectorOtherName}%")\n`;
 
         query += directorOtherName;
         title_parts[1] = true;
@@ -549,6 +549,39 @@ function composeScreenwriter(objectFilters) {
                 ) 
                 ) as film_con_sceneggiatura
                 `;
+
+    console.log("QUERY");
+    console.log(query);
+
+    return query;
+}
+
+function composeCastMember(objectFilters) {
+    console.log("COMPOSE CAST MEMBER!!");
+
+    var query = `SELECT * FROM
+                    (
+                    SELECT v1.resource_id
+                    FROM value v1
+                    WHERE v1.value_resource_id IN (
+                      SELECT v2.resource_id
+                      FROM value v2
+                      JOIN property p ON v2.property_id = p.id
+                      WHERE
+                    `;
+
+    if (objectFilters.filmCastMemberName !== '' && objectFilters.filmCastMemberName !== null) {
+        const castMemberName = `
+        (p.local_name = "castMemberName" AND v2.value LIKE "%${objectFilters.filmCastMemberName}%")
+        OR
+        (p.local_name = "otherCastMemberName" AND v2.value LIKE "%${objectFilters.filmCastMemberName}%")
+        OR
+        (p.local_name = "characterName" AND v2.value LIKE "%${objectFilters.filmCastMemberName}%")`;
+
+        query += castMemberName;
+    }
+
+    query += ')) AS film_con_interprete_personaggio';
 
     console.log("QUERY");
     console.log(query);
@@ -1231,6 +1264,10 @@ function checkScreenwriter(objectFilters) {
     return objectFilters.filmScreenwriterName !== '' && objectFilters.filmScreenwriterName !== null;
 }
 
+function checkCastMember(objectFilters) {
+    return objectFilters.filmCastMemberName !== '' && objectFilters.filmCastMemberName !== null;
+}
+
 function checkDate(objectFilters) {
     return checkDateTypology(objectFilters) || checkStartDate(objectFilters) || checkEndDate(objectFilters);
 }
@@ -1309,6 +1346,10 @@ module.exports = {
     //Sceneggiatura
     checkScreenwriter,
     composeScreenwriter,
+
+    //Cast Member
+    checkCastMember,
+    composeCastMember,
 
     //Crediti
     checkCredits,
