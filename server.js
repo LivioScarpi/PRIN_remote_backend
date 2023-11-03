@@ -12,11 +12,14 @@ const cors = require("cors");
 const portNumber = production ? 3004 : 3003;
 const dbname = production ? "omekas_production_db" : "omekas_db";
 
+/*
 const corsOptions = {
     origin: '*', // Sostituisci con l'URL del tuo frontend
 };
 
 app.use(cors(corsOptions));
+*/
+
 app.use(bodyParser.json());
 
 app.get("/server/overview", (req, res) => {
