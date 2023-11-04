@@ -88,6 +88,9 @@ app.listen(portNumber, "localhost", () => {
 });
 
 function getResourceFromID(id, res) {
+    console.log("ID DA TROVARE");
+    console.log(id);
+
     var con = mysql.createConnection({
         host: "localhost",
         user: "root",
@@ -1734,7 +1737,7 @@ function getLocusOfFilmByFilmID(res, req) {
 function areAllFiltersEmpty(obj) {
     for (const key in obj) {
         if (obj.hasOwnProperty(key)) {
-            if (obj[key] === "" || (Array.isArray(obj[key]) && obj[key].length === 0)) {
+            if (obj[key] === "" || obj[key] === null || (Array.isArray(obj[key]) && obj[key].length === 0)) {
                 continue;
             } else {
                 return false;
