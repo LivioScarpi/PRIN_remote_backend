@@ -3,7 +3,7 @@ const bodyParser = require("body-parser");
 const mysql = require("mysql");
 const { parse } = require("url");
 
-const production = false;
+const production = true;
 const functions = require("./composeFilmQuery");
 
 const app = express();
@@ -1101,8 +1101,8 @@ function getFilmFilters(res, req) {
 
     //chiedo la lista di film
     var query = `SELECT distinct property_id, value, p.local_name FROM value v join property p on v.property_id = p.id where property_id in (
-                    SELECT distinct p.id FROM property p join vocabulary v on p.vocabulary_id = v.id where p.local_name in ("genre", "titleType", "titleLanguage", "productionCompanyCountry", "productionCompanyName", "dateTypology", "lighting", "cameraAngle", "tilt", "cameraShotType", "hasMatte", "cameraPlacement", "cameraMotion", "colouring") and (v.prefix = "ficro" or v.prefix = "fiucro") 
-                    )`;
+    SELECT distinct p.id FROM property p join vocabulary v on p.vocabulary_id = v.id where p.local_name in ("genre", "titleType", "titleLanguage", "productionCompanyCountry", "productionCompanyName", "dateTypology", "lighting", "cameraAngle", "tilt", "cameraShotType", "hasMatte", "cameraPlacement", "cameraMotion", "colouring", "hasIRIType", "directorName") and (v.prefix = "ficro" or v.prefix = "fiucro" or v.prefix = "filocro")
+    )`;
 
     let filters = new Promise((resolve, reject) => {
         con.query(
@@ -1130,6 +1130,8 @@ function getFilmFilters(res, req) {
             var productionCountry = list.filter(obj => obj.local_name === "productionCompanyCountry");
             var productionName = list.filter(obj => obj.local_name === "productionCompanyName");
             var dateTypology = list.filter(obj => obj.local_name === "dateTypology");
+            var locusIRITypes = list.filter(obj => obj.local_name === "hasIRIType");
+            var directorsNames = list.filter(obj => obj.local_name === "directorName");
 
             /*linguaggio e stile*/
             var lighting = list.filter(obj => obj.local_name === "lighting");
@@ -1149,6 +1151,8 @@ function getFilmFilters(res, req) {
                 productionCountry: productionCountry,
                 productionName: productionName,
                 dateTypology: dateTypology,
+                locusIRITypes: locusIRITypes,
+                directorsNames: directorsNames,
                 lighting: lighting,
                 cameraAngle: cameraAngle,
                 tilt: tilt,
@@ -1737,9 +1741,12 @@ function getLocusOfFilmByFilmID(res, req) {
 function areAllFiltersEmpty(obj) {
     for (const key in obj) {
         if (obj.hasOwnProperty(key)) {
-            if (obj[key] === "" || obj[key] === null || (Array.isArray(obj[key]) && obj[key].length === 0)) {
+            if (key === "advancedSearch" || obj[key] === "" || obj[key] === null || (Array.isArray(obj[key]) && obj[key].length === 0)) {
                 continue;
             } else {
+                console.log("CHIAVE NON VUOTA");
+                console.log(key);
+                console.log(obj[key]);
                 return false;
             }
         }

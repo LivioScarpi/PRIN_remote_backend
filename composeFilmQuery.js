@@ -372,6 +372,9 @@ function composeTitle(objectFilters) {
     var query = `SELECT * FROM (\n`;
     var title_parts = [false, false, false, false];
 
+    //Se sono nella ricerca semplice voglio che ci sia la UNION, altrimenti l'INTERSECT
+    var logic_operator = objectFilters.advancedSearch ? "\nINTERSECT\n" : "\nUNION\n";
+
     if (checkFilmTitle(objectFilters)) {
         filmTitleQuery = composeFilmTitle(objectFilters);
 
@@ -382,7 +385,7 @@ function composeTitle(objectFilters) {
     if (checkSerieTitle(objectFilters)) {
 
         if (title_parts[0]) {
-            query += "\nINTERSECT\n";
+            query += logic_operator;
         }
 
         serieTitleQuery = composeSerieTitle(objectFilters);
@@ -394,7 +397,7 @@ function composeTitle(objectFilters) {
     if (checkEpisodeSerieTitle(objectFilters)) {
 
         if (title_parts[0] || title_parts[1]) {
-            query += "\nINTERSECT\n";
+            query += logic_operator;
         }
 
         episodeSerieTitleQuery = composeEpisodeSerieTitle(objectFilters);
@@ -406,7 +409,7 @@ function composeTitle(objectFilters) {
     if (objectFilters.copyTitleText !== '' && objectFilters.copyTitleText !== null) {
 
         if (title_parts[0] || title_parts[1] || title_parts[2]) {
-            query += "\nINTERSECT\n";
+            query += logic_operator;
         }
 
         copyTitleQuery = composeCopyTitle(objectFilters);
@@ -465,11 +468,12 @@ function composeDirector(objectFilters) {
                       SELECT v2.resource_id
                       FROM value v2
                       JOIN property p ON v2.property_id = p.id
-                      WHERE
                     `;
 
     var title_parts = [false, false];
     if (objectFilters.filmDirectorName !== '' && objectFilters.filmDirectorName !== null) {
+        query += " WHERE "
+
         const directorName = `
         (p.local_name = "directorName" AND v2.value LIKE "%${objectFilters.filmDirectorName}%")\n`;
 
@@ -481,6 +485,8 @@ function composeDirector(objectFilters) {
     if (objectFilters.filmDirectorOtherName !== '' && objectFilters.filmDirectorOtherName !== null) {
         if (title_parts[0]) {
             query += '\n OR \n'
+        } else {
+            query += '\n WHERE \n'
         }
 
         const directorOtherName = `
@@ -1223,24 +1229,24 @@ function composeDate(objectFilters) {
 }
 
 function checkFilmTitle(objectFilters) {
-    return (objectFilters.titleTextFilmTitle !== '' && objectFilters.titleTextFilmTitle !== []) ||
-        (objectFilters.titleTypeFilmTitle !== '' && objectFilters.titleTypeFilmTitle !== []) ||
-        (objectFilters.titleLanguageFilmTitle !== '' && objectFilters.titleLanguageFilmTitle !== []) ||
-        (objectFilters.titleOtherCharacterizationFilmTitle !== '' && objectFilters.titleOtherCharacterizationFilmTitle !== []);
+    return (objectFilters.titleTextFilmTitle !== '' && objectFilters.titleTextFilmTitle !== null) ||
+        (objectFilters.titleTypeFilmTitle !== '' && objectFilters.titleTypeFilmTitle !== null) ||
+        (objectFilters.titleLanguageFilmTitle !== '' && objectFilters.titleLanguageFilmTitle !== null) ||
+        (objectFilters.titleOtherCharacterizationFilmTitle !== '' && objectFilters.titleOtherCharacterizationFilmTitle !== null);
 }
 
 function checkSerieTitle(objectFilters) {
-    return (objectFilters.titleTextSerieTitle !== '' && objectFilters.titleTextSerieTitle !== []) ||
-        (objectFilters.titleTypeSerieTitle !== '' && objectFilters.titleTypeSerieTitle !== []) ||
-        (objectFilters.titleLanguageSerieTitle !== '' && objectFilters.titleLanguageSerieTitle !== []) ||
-        (objectFilters.titleOtherCharacterizationSerieTitle !== '' && objectFilters.titleOtherCharacterizationSerieTitle !== []);
+    return (objectFilters.titleTextSerieTitle !== '' && objectFilters.titleTextSerieTitle !== null) ||
+        (objectFilters.titleTypeSerieTitle !== '' && objectFilters.titleTypeSerieTitle !== null) ||
+        (objectFilters.titleLanguageSerieTitle !== '' && objectFilters.titleLanguageSerieTitle !== null) ||
+        (objectFilters.titleOtherCharacterizationSerieTitle !== '' && objectFilters.titleOtherCharacterizationSerieTitle !== null);
 }
 
 function checkEpisodeSerieTitle(objectFilters) {
-    return (objectFilters.titleTextEpisodeSerieTitle !== '' && objectFilters.titleTextEpisodeSerieTitle !== []) ||
-        (objectFilters.titleTypeEpisodeSerieTitle !== '' && objectFilters.titleTypeEpisodeSerieTitle !== []) ||
-        (objectFilters.titleLanguageEpisodeSerieTitle !== '' && objectFilters.titleLanguageEpisodeSerieTitle !== []) ||
-        (objectFilters.titleOtherCharacterizationEpisodeSerieTitle !== '' && objectFilters.titleOtherCharacterizationEpisodeSerieTitle !== []);
+    return (objectFilters.titleTextEpisodeSerieTitle !== '' && objectFilters.titleTextEpisodeSerieTitle !== null) ||
+        (objectFilters.titleTypeEpisodeSerieTitle !== '' && objectFilters.titleTypeEpisodeSerieTitle !== null) ||
+        (objectFilters.titleLanguageEpisodeSerieTitle !== '' && objectFilters.titleLanguageEpisodeSerieTitle !== null) ||
+        (objectFilters.titleOtherCharacterizationEpisodeSerieTitle !== '' && objectFilters.titleOtherCharacterizationEpisodeSerieTitle !== null);
 }
 
 function checkTitle(objectFilters) {
@@ -1253,7 +1259,7 @@ function checkTitle(objectFilters) {
 }
 
 function checkDirector(objectFilters) {
-    return objectFilters.filmDirectorName !== '' || objectFilters.filmDirectorOtherName !== '';
+    return (objectFilters.filmDirectorName !== '' && objectFilters.filmDirectorName !== null) || (objectFilters.filmDirectorOtherName !== '' && objectFilters.filmDirectorOtherName !== null);
 }
 
 function checkSubject(objectFilters) {
