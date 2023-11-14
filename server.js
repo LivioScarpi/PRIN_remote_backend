@@ -2,7 +2,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const mysql = require("mysql");
 const { parse } = require("url");
-
+const NodeCache = require('node-cache');
+const cache = new NodeCache();
 const production = false;
 const functions = require("./composeFilmQuery");
 
@@ -22,6 +23,61 @@ app.use(cors(corsOptions));
 
 app.use(bodyParser.json());
 
+// Middleware per il caching
+const cacheMiddleware = (req, res, next) => {
+    console.log("ENTRO IN CACHE");
+    const key = req.originalUrl || req.url; // Chiave basata sull'URL della richiesta
+
+    // Se la richiesta è di tipo POST e contiene un body JSON
+    if (req.method === 'POST' && req.body) {
+        const bodyParams = JSON.stringify(req.body);
+        const cacheKey = key + bodyParams; // Aggiungi i parametri del body all'URL
+        console.log("cacheKey");
+        console.log(cacheKey);
+
+        const cachedResponse = cache.get(cacheKey);
+
+        if (cachedResponse) {
+            console.log("RISPOSTA IN CACHE");
+            // Se la risposta è presente nella cache, restituiscila
+            return res.send(JSON.parse(cachedResponse));
+        } else {
+            console.log("RISPOSTA NON IN CACHE");
+
+            // Altrimenti, procedi con la richiesta e memorizza la risposta nella cache
+            res.sendResponse = res.send;
+            res.send = (body) => {
+                console.log("STO SALVANDO IN CACHE LA RICHIESTA");
+                cache.set(cacheKey, body, 600); //600 secondi: 10 minuti -> poi il dato salvato diventa obsoleto
+                res.sendResponse(body);
+            };
+            console.log("CHIAMO NEXT");
+            next();
+        }
+    } else if (req.method === 'GET' && Object.keys(req.query).length === 0) {
+        console.log("SONO IN UNA GET");
+        // Se la richiesta è di tipo GET senza parametri
+        const cachedResponse = cache.get(key);
+
+        if (cachedResponse) {
+            console.log("LA RISPOSTA E' IN CACHE");
+            // Se la risposta è presente nella cache, restituiscila
+            return res.send(JSON.parse(cachedResponse));
+        } else {
+            console.log("LA RISPOSTA NON E' IN CACHE");
+            res.sendResponse = res.send;
+            res.send = (body) => {
+                console.log("STO SALVANDO IN CACHE LA RICHIESTA");
+                cache.set(key, body, 600); //600 secondi: 10 minuti -> poi il dato salvato diventa obsoleto
+                res.sendResponse(body);
+            };
+            next(); // Passa al prossimo middleware se la risposta non è presente nella cache
+        }
+    } else {
+        next(); // Passa al prossimo middleware se non soddisfa nessuna delle condizioni sopra
+    }
+};
+
 app.get("/server/overview", (req, res) => {
     res.send('Welcome to the "overview page" of the nginX project');
 });
@@ -33,7 +89,7 @@ app.get("/server/jsontest", (req, res) => {
     });
 });
 
-app.get("/server/get_all_films_db", (req, res) => {
+app.get("/server/get_all_films_db", express.json(), cacheMiddleware, (req, res) => {
     getAllFilmsDB(res);
 });
 
@@ -69,7 +125,7 @@ app.post("/server/get_locus_of_film", (req, res) => {
     getLocusOfFilmByFilmID(res, req);
 });
 
-app.post("/server/get_uc_with_present_person", (req, res) => {
+app.post("/server/get_uc_with_present_person", express.json(), cacheMiddleware, (req, res) => {
     getUCofFilmWithPresentPerson(res, req);
 })
 
@@ -476,9 +532,13 @@ function getResourcesFromClassName(className, con, res) {
                 */
 
             } else {
-                res.writeHead(200, {"Content-Type": "application/json"});
+                /*res.writeHead(200, {"Content-Type": "application/json"});
                 res.end(
                     JSON.stringify([])
+                );*/
+
+                res.send(
+                    []
                 );
 
                 con.end();
@@ -1350,9 +1410,13 @@ function makeInnerQuery(con, res, query, list) {
         function ({objectListFinal, res}) {
             console.log("HO OTTWNUTO OBJETCT RESOLVE");
 
-            res.writeHead(200, {"Content-Type": "application/json"});
+            /*res.writeHead(200, {"Content-Type": "application/json"});
             res.end(
                 JSON.stringify(objectListFinal)
+            );*/
+
+            res.send(
+                objectListFinal
             );
 
             con.end();
@@ -1859,9 +1923,9 @@ function getUCofFilmWithPresentPerson(res, req) {
                 // Restituisci i risultati della terza query al frontend
                 console.log('Risultati finali da restituire al frontend:', results);
 
-                res.writeHead(200, {"Content-Type": "application/json"});
-                res.end(
-                    JSON.stringify(results)
+                //res.writeHead(200, {"Content-Type": "application/json"});
+                res.send(
+                    results
                 );
 
             }
