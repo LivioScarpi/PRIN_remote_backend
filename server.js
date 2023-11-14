@@ -3,7 +3,7 @@ const bodyParser = require("body-parser");
 const mysql = require("mysql");
 const { parse } = require("url");
 
-const production = true;
+const production = false;
 const functions = require("./composeFilmQuery");
 
 const app = express();
@@ -68,6 +68,10 @@ app.post("/server/search_films", (req, res) => {
 app.post("/server/get_locus_of_film", (req, res) => {
     getLocusOfFilmByFilmID(res, req);
 });
+
+app.post("/server/get_uc_with_present_person", (req, res) => {
+    getUCofFilmWithPresentPerson(res, req);
+})
 
 app.post("/server/get_resource_from_id", (req, res) => {
     try {
@@ -1716,6 +1720,135 @@ function getLocusOfFilmByFilmID(res, req) {
                         if (index === 3) { // Verifica se questa è la terza query (l'indice 2)
                             console.log('Risultati della terza query:', queryResults);
                             results = queryResults;
+                        }
+                    }
+                    executeBatchQueries(queries, index + 1);
+                });
+            } else {
+                // Chiudi la connessione quando tutte le query sono state eseguite
+                con.end();
+                // Restituisci i risultati della terza query al frontend
+                console.log('Risultati finali da restituire al frontend:', results);
+
+                res.writeHead(200, {"Content-Type": "application/json"});
+                res.end(
+                    JSON.stringify(results)
+                );
+
+            }
+        }
+
+        executeBatchQueries(queries);
+    }
+}
+
+
+
+
+function getUCofFilmWithPresentPerson(res, req) {
+    console.log("BODY");
+    console.log(req.body);
+    var body = JSON.parse(JSON.stringify(req.body));
+
+    console.log("OBJECT FILTERS");
+    console.log(body);
+
+    // qua dò per scontato di dover avere sia il nome interprete che il nome del personaggio
+    if (!body.film_id || !body.cast_member_name || !body.character_name) {
+        console.log("ERROR: missing parameter");
+        res.writeHead(200, {"Content-Type": "application/json"});
+        res.end(
+            JSON.stringify([])
+        );
+    } else {
+        console.log("Parameters ok");
+        var con = mysql.createConnection({
+            host: "localhost",
+            user: "root",
+            password: "omekas_prin_2022",
+            database: dbname
+        });
+
+
+        const queries = [
+            `START TRANSACTION`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+                SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
+                FROM value v
+            JOIN property p ON v.property_id = p.id;`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS uc_of_film AS
+            SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id = ${body.film_id};
+            `,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS persona_presente AS
+            SELECT t1.resource_id from tabella_unica t1 join tabella_unica t2 on t1.resource_id = t2.resource_id
+            where (t1.local_name = "presentPersonCharacterName" and t1.value = "${body.character_name}") and (t2.local_name = "presentPersonCastMemberName" and t2.value = "${body.cast_member_name}");
+            `,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS rappresentazioni_luogo_con_persona_presente AS
+            SELECT t1.resource_id from tabella_unica t1 join persona_presente p1 on t1.value_resource_id = p1.resource_id;`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS uc_con_persona_presente AS
+            SELECT t1.value_resource_id from tabella_unica t1 join rappresentazioni_luogo_con_persona_presente r1 on t1.resource_id = r1.resource_id where t1.local_name = "hasLinkedFilmUnitCatalogueRecord";
+            `,
+
+
+            `SELECT * FROM (
+            SELECT * from uc_con_persona_presente
+                     INTERSECT
+            SELECT * from uc_of_film ) AS uc join tabella_unica t1 on uc.value_resource_id = t1.resource_id where t1.property_id = 1 or (t1.local_name = "description" and t1.property_id <> 4);
+            `,
+
+
+            `DROP TEMPORARY TABLE uc_of_film;`,
+
+            `DROP TEMPORARY TABLE uc_con_persona_presente;`,
+
+            `DROP TEMPORARY TABLE rappresentazioni_luogo_con_persona_presente;`,
+            `DROP TEMPORARY TABLE persona_presente;`,
+            `DROP TEMPORARY TABLE tabella_unica;`,
+
+            `COMMIT;`,
+            // Aggiungi altre query qui
+        ];
+
+        //TODO: manca "linguaggio e stile come false"
+
+        var results = []; // Array per salvare i risultati della terza query
+
+        function executeBatchQueries(queries, index = 0) {
+            if (index < queries.length) {
+                const query = queries[index];
+                con.query(query, (error, queryResults) => {
+                    if (error) {
+                        con.rollback(() => {
+                            console.error('Errore nell\'esecuzione della query:', error);
+                            con.end();
+                        });
+                    } else {
+                        console.log('Query eseguita con successo:', query);
+                        if (index === 6) { // Verifica se questa è la terza query (l'indice 2)
+                            console.log('Risultati della terza query:', queryResults);
+
+                            const combinedData = queryResults.reduce((acc, obj) => {
+                                const existingObj = acc.find(item => item.resource_id === obj.resource_id);
+                                if (existingObj) {
+                                    existingObj[obj.local_name] = obj.value;
+                                } else {
+                                    const newObj = {
+                                        resource_id: obj.resource_id,
+                                        [obj.local_name]: obj.value
+                                    };
+                                    acc.push(newObj);
+                                }
+                                return acc;
+                            }, []);
+
+                            console.log(combinedData);
+
+                            results = combinedData;
                         }
                     }
                     executeBatchQueries(queries, index + 1);
