@@ -42,7 +42,7 @@ const cacheMiddleware = (req, res, next) => {
             // Se la risposta è presente nella cache, restituiscila
             return res.send(JSON.parse(cachedResponse));
         } else {
-            console.log("RISPOSTA NON IN CACHE");
+            console.log("RISPOSTA NON IN CACHE: " + cacheKey);
 
             // Altrimenti, procedi con la richiesta e memorizza la risposta nella cache
             res.sendResponse = res.send;
@@ -60,7 +60,7 @@ const cacheMiddleware = (req, res, next) => {
         const cachedResponse = cache.get(key);
 
         if (cachedResponse) {
-            console.log("LA RISPOSTA E' IN CACHE");
+            console.log("LA RISPOSTA E' IN CACHE: " + key);
             // Se la risposta è presente nella cache, restituiscila
             return res.send(JSON.parse(cachedResponse));
         } else {
@@ -93,35 +93,35 @@ app.get("/server/get_all_films_db", express.json(), cacheMiddleware, (req, res) 
     getAllFilmsDB(res);
 });
 
-app.get("/server/get_all_locus_db", (req, res) => {
+app.get("/server/get_all_locus_db", express.json(), cacheMiddleware, (req, res) => {
     getAllLocusDB(res);
 });
 
-app.get("/server/get_schede_av_of_film", (req, res) => {
+app.get("/server/get_schede_av_of_film", express.json(), cacheMiddleware, (req, res) => {
     getSchedeAVofFilm(res, req);
 });
 
-app.post("/server/get_unita_catalografiche_of_film", (req, res) => {
+app.post("/server/get_unita_catalografiche_of_film", express.json(), cacheMiddleware, (req, res) => {
     getUnitaCatalograficheOfFilm(res, req);
 });
 
-app.post("/server/get_schede_luoghi_of_uc", (req, res) => {
+app.post("/server/get_schede_luoghi_of_uc", express.json(), cacheMiddleware, (req, res) => {
     getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req);
 });
 
-app.get("/server/get_all_locus_related_to_one", (req, res) => {
+app.get("/server/get_all_locus_related_to_one", express.json(), cacheMiddleware, (req, res) => {
     getAllLocusRelatedToOne(res, req);
 });
 
-app.get("/server/get_film_filters", (req, res) => {
+app.get("/server/get_film_filters", express.json(), cacheMiddleware, (req, res) => {
     getFilmFilters(res);
 });
 
-app.post("/server/search_films", (req, res) => {
+app.post("/server/search_films", express.json(), cacheMiddleware, (req, res) => {
     searchFilm(res, req);
 });
 
-app.post("/server/get_locus_of_film", (req, res) => {
+app.post("/server/get_locus_of_film", express.json(), cacheMiddleware, (req, res) => {
     getLocusOfFilmByFilmID(res, req);
 });
 
@@ -129,7 +129,7 @@ app.post("/server/get_uc_with_present_person", express.json(), cacheMiddleware, 
     getUCofFilmWithPresentPerson(res, req);
 })
 
-app.post("/server/get_resource_from_id", (req, res) => {
+app.post("/server/get_resource_from_id", express.json(), cacheMiddleware, (req, res) => {
     try {
         const resource_id = req.body.resource_id;
         getResourceFromID(resource_id, res);
