@@ -389,153 +389,7 @@ function getResourcesFromClassName(className, con, res) {
                 console.log(query);
 
                 makeInnerQuery(con, res, query, list);
-
-                /*
-                let prom = new Promise((resolve, reject) => {
-                    con.query(
-                        query,
-                        (err, rows) => {
-                            // console.log(rows);
-                            if (err) {
-                                return reject(err);
-                            } else {
-                                let result = Object.values(JSON.parse(JSON.stringify(rows)));
-
-                                object = result.reverse();
-                                var object = object.reduce(function (r, a) {
-                                    r[a.resource_id] = r[a.resource_id] || [];
-                                    r[a.resource_id].push(a);
-                                    return r;
-                                }, Object.create(null));
-
-                                var arr = {};
-
-                                for (let key in object) {
-                                    arr[key] = {};
-                                    object[key].forEach(property => {
-
-                                        var propertyObject = {};
-                                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
-
-                                        propertyObject[propertyName] = property;
-
-                                        if (arr[key][propertyName] === undefined) {
-                                            arr[key][propertyName] = [property];
-                                        } else {
-                                            arr[key][propertyName].push(property);
-                                        }
-                                        // arr[key][propertyName] = property;
-                                    });
-                                }
-
-                                for (let key in arr) {
-                                    console.log("KEY: " + key);
-                                    console.log(arr[key]);
-
-                                    for (let internalKey in arr[key]) {
-                                        var property = arr[key][internalKey];
-                                        console.log("SONO QUA");
-                                        console.log(property);
-
-                                        property.forEach(prop => {
-                                            if (prop.value_resource_id !== null) {
-                                                //la property collega una risorsa
-
-                                                console.log("\n\n\n\nORA PROP VALUE E'");
-                                                console.log(prop.value);
-
-                                                if (prop.value === undefined || prop.value === null) {
-                                                    prop.value = [];
-                                                    console.log("\nDEVO METTERE UN OGGETTO");
-
-                                                    console.log("\n\n STAMPO")
-                                                    console.log(arr[prop.value_resource_id]);
-                                                    prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
-                                                } else {
-                                                    console.log("\nDEVO METTERE UN OGGETTO");
-                                                    console.log("\n\n STAMPO")
-                                                    console.log(arr[prop.value_resource_id]);
-                                                    prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
-                                                }
-                                            }
-                                        });
-
-                                    }
-                                }
-                                ;
-
-                                finalObject = arr;
-
-                                var objectList = [];
-
-                                for (let key in object) {
-                                    console.log("KEY: " + key);
-                                    console.log(list);
-                                    if (list.includes(parseInt(key))) {
-                                        objectList.push(object[key]);
-                                        // console.log(object[key]);
-                                        // var finalObject = {}
-
-                                        // object[key].forEach(property => {
-                                        //   var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
-                                        //   finalObject[propertyName] = property;
-                                        // });
-
-                                        // console.log("FINAL OBJECT");
-                                        // console.log(finalObject);
-
-                                        // objectList.push(finalObject);
-                                    }
-                                }
-
-                                var objectListFinal = [];
-
-                                objectList.forEach(object => {
-                                    var finalObject = {};
-
-                                    object.forEach(property => {
-                                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
-
-                                        if (!finalObject[propertyName]) {
-                                            finalObject[propertyName] = [property];
-                                        } else {
-                                            finalObject[propertyName].push(property);
-                                        }
-
-                                    });
-
-                                    objectListFinal.push(finalObject);
-                                });
-
-                                resolve({objectListFinal, res});
-                            }
-                        });
-                });
-
-                prom.then(
-                    function ({objectListFinal, res}) {
-                        // console.log("RES NEL THEN");
-                        // console.log(res);
-                        console.log("HO OTTWNUTO OBJETCT RESOLVE");
-                        res.writeHead(200, {"Content-Type": "application/json"});
-                        res.end(
-                            JSON.stringify(objectListFinal)
-                        );
-                    });
-
-                prom.catch(function (err) {
-                    res.writeHead(200, {"Content-Type": "text"});
-                    res.end(
-                        "Si è verificato un errore nella richiesta"
-                    );
-                });
-                */
-
             } else {
-                /*res.writeHead(200, {"Content-Type": "application/json"});
-                res.end(
-                    JSON.stringify([])
-                );*/
 
                 res.send(
                     []
@@ -1414,6 +1268,15 @@ function makeInnerQuery(con, res, query, list) {
             res.end(
                 JSON.stringify(objectListFinal)
             );*/
+
+            //Ordino in ordine alfabetico
+            objectListFinal.sort((a, b) => {
+                const titleA = a['dcterms:title'][0]['value'].split(':')[1].trim();
+                const titleB = b['dcterms:title'][0]['value'].split(':')[1].trim();
+
+                // Usa localeCompare per ordinare in base al titolo (ignorando maiuscole/minuscole)
+                return titleA.localeCompare(titleB);
+            });
 
             res.send(
                 objectListFinal
