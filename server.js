@@ -1,7 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const mysql = require("mysql");
-const { parse } = require("url");
+const {parse} = require("url");
 const NodeCache = require('node-cache');
 const cache = new NodeCache();
 const production = false;
@@ -109,12 +109,16 @@ app.post("/server/get_schede_luoghi_of_uc", express.json(), cacheMiddleware, (re
     getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req);
 });
 
-app.get("/server/get_all_locus_related_to_one", express.json(), cacheMiddleware, (req, res) => {
+app.post("/server/get_all_locus_related_to_one", express.json(), cacheMiddleware, (req, res) => {
     getAllLocusRelatedToOne(res, req);
 });
 
 app.get("/server/get_film_filters", express.json(), cacheMiddleware, (req, res) => {
     getFilmFilters(res);
+});
+
+app.get("/server/get_locus_types", express.json(), cacheMiddleware, (req, res) => {
+    getLocusTypes(res);
 });
 
 app.post("/server/search_films", express.json(), cacheMiddleware, (req, res) => {
@@ -1106,6 +1110,106 @@ function getFilmFilters(res, req) {
 }
 
 
+function getLocusTypes(res, req) {
+
+
+    var con = mysql.createConnection({
+        host: "localhost",
+        user: "root",
+        password: "omekas_prin_2022",
+        database: dbname
+    });
+
+    const queries = [
+        `START TRANSACTION`,
+
+        `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+        SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
+        FROM value v
+         JOIN property p ON v.property_id = p.id;`,
+
+        `SELECT distinct t3.value, t3.local_name, rc.local_name as class_name FROM tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+        JOIN resource r ON t1.resource_id = r.id JOIN resource_class rc ON r.resource_class_id = rc.id
+                 WHERE t3.local_name = "type" and rc.local_name = "LocusCatalogueRecord"
+        
+        UNION
+        
+        SELECT distinct t4.value, t4.local_name, rc.local_name as class_name FROM tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id JOIN tabella_unica t4 ON t3.value_resource_id = t4.resource_id
+                                                       JOIN resource r ON t1.resource_id = r.id JOIN resource_class rc ON r.resource_class_id = rc.id
+        WHERE t4.local_name = "typeName" and rc.local_name = "LocusCatalogueRecord"
+        
+        UNION
+        
+        SELECT distinct t3.value, t3.local_name, rc.local_name as class_name FROM tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+                                                                                     JOIN resource r ON t1.resource_id = r.id JOIN resource_class rc ON r.resource_class_id = rc.id
+        WHERE t3.local_name = "type" and rc.local_name = "PlaceRepresentationCatalogueRecord"
+        
+        UNION
+        
+        SELECT distinct value, local_name, null from tabella_unica where local_name = "seasonInNarrative"
+        UNION
+        SELECT distinct value, local_name, null from tabella_unica where local_name = "partOfDayInNarrative"
+        UNION
+        SELECT distinct value, local_name, null from tabella_unica where local_name = "weatherConditionsInNarrative";
+        `,
+
+        `DROP TEMPORARY TABLE tabella_unica;`,
+
+        `COMMIT;`,
+        // Aggiungi altre query qui
+    ];
+
+    var results = []; // Array per salvare i risultati della terza query
+
+    function executeBatchQueries(queries, index = 0) {
+        if (index < queries.length) {
+            const query = queries[index];
+            con.query(query, (error, queryResults) => {
+                if (error) {
+                    con.rollback(() => {
+                        console.error('Errore nell\'esecuzione della query:', error);
+                        con.end();
+                    });
+                } else {
+                    console.log('Query eseguita con successo:', query);
+                    if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
+                        console.log('Risultati della terza query:', queryResults);
+
+                        var locusTypeName = queryResults.filter(obj => obj.local_name === "typeName" && obj.class_name === "LocusCatalogueRecord").map(obj => obj.value);
+                        var locusType = queryResults.filter(obj => obj.local_name === "type" && obj.class_name === "LocusCatalogueRecord").map(obj => obj.value);
+
+                        var otherEntitiesTypeName = queryResults.filter(obj => obj.local_name === "typeName" && obj.class_name === "PlaceRepresentationCatalogueRecord").map(obj => obj.value);
+                        var otherEntitiesType = queryResults.filter(obj => obj.local_name === "type" && obj.class_name === "PlaceRepresentationCatalogueRecord").map(obj => obj.value);
+
+                        var season = queryResults.filter(obj => obj.local_name === "seasonInNarrative").map(obj => obj.value);
+                        var weather = queryResults.filter(obj => obj.local_name === "weatherConditionsInNarrative").map(obj => obj.value);
+                        var partOfDay = queryResults.filter(obj => obj.local_name === "partOfDayInNarrative").map(obj => obj.value);
+
+                        results = {locusType: locusType, locusTypeName: locusTypeName, otherEntitiesType: otherEntitiesType, otherEntitiesTypeName: otherEntitiesTypeName, season: season, weather: weather, partOfDay: partOfDay};
+                        //results = queryResults;
+                    }
+                }
+                executeBatchQueries(queries, index + 1);
+            });
+        } else {
+            // Chiudi la connessione quando tutte le query sono state eseguite
+            con.end();
+            // Restituisci i risultati della terza query al frontend
+            console.log('Risultati finali da restituire al frontend:', results);
+
+            res.writeHead(200, {"Content-Type": "application/json"});
+            res.end(
+                JSON.stringify(results)
+            );
+
+        }
+    }
+
+    executeBatchQueries(queries);
+
+}
+
+
 /**
  * Funzione per ottenere tutti i Locus che fanno parte / sono ubicati nel luogo principale (anche ricorsivamente)
  * esempio:
@@ -1668,8 +1772,6 @@ function getLocusOfFilmByFilmID(res, req) {
         executeBatchQueries(queries);
     }
 }
-
-
 
 
 function getUCofFilmWithPresentPerson(res, req) {
