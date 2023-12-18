@@ -4,8 +4,9 @@ const mysql = require("mysql");
 const {parse} = require("url");
 const NodeCache = require('node-cache');
 const cache = new NodeCache();
-const production = false;
+const production = true;
 const functions = require("./composeFilmQuery");
+const locusFunctions = require("./composeLocusQuery");
 
 const app = express();
 const cors = require("cors");
@@ -142,10 +143,16 @@ app.post("/server/get_resource_from_id", express.json(), cacheMiddleware, (req, 
     }
 });
 
+app.post("/server/get_rappr_luogo_locus_filters", express.json(), cacheMiddleware, (req, res) => {
+    getRapprLuogoFilmFilters(res, req);
+})
+
+
 app.get("/", (req, res) => {
     console.log("ORA INVIO LA RISPOSTA");
     res.send("Successfully started a server");
 });
+
 
 app.listen(portNumber, "localhost", () => {
     console.log("Listening for requests");
@@ -1914,4 +1921,19 @@ function areAllFiltersEmpty(obj) {
         }
     }
     return true;
+}
+
+function getRapprLuogoFilmFilters(res, req) {
+    console.log("BODY");
+    console.log(req.body);
+    var body = JSON.parse(JSON.stringify(req.body));
+
+    console.log("OBJECT FILTERS");
+    console.log(body);
+
+    var query = locusFunctions.composeLocusQuery(body);
+
+    console.log("QUERY");
+    console.log(query);
+
 }
