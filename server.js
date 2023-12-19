@@ -1997,7 +1997,7 @@ function getRapprLuogoFilmFilters(res, req) {
      */
     queries.push(`COMMIT;`);
 
-    var indexResults = queries.length - 1;
+    var indexResults = queries.length - 2;
 
 
     console.log(queries);
