@@ -1961,8 +1961,8 @@ function getRapprLuogoFilmFilters(res, req) {
     queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
 
 
-    queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "narrative");
-    queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "narrative");
+    queries = locusFunctions.composeLocusRelationships(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative");
+    queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative");
 
     //Aggiungere query di select
 
