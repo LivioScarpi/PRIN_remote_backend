@@ -1957,19 +1957,47 @@ function getRapprLuogoFilmFilters(res, req) {
 
     //Qua devo aggiungere le query intermedie
 
-    queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType);
-    queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType);
+    queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
+    queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
 
-    queries.push(`DROP TEMPORARY TABLE IF EXISTS locus_list_free_type;`,
-        `DROP TEMPORARY TABLE IF EXISTS locus_relationships_free_type;`,
-        `DROP TEMPORARY TABLE IF EXISTS locus_list_type_name;`,
-        `DROP TEMPORARY TABLE IF EXISTS locus_relationships_type_name;`,
-        `DROP TEMPORARY TABLE IF EXISTS locus_over_time_list_free_type;`,
-        `DROP TEMPORARY TABLE IF EXISTS locus_over_time_free_type;`,
-        `DROP TEMPORARY TABLE IF EXISTS locus_over_time_list_type_name;`,
-        `DROP TEMPORARY TABLE IF EXISTS locus_over_time_type_name;`,
-        `DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
-        `COMMIT;`);
+
+    queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "narrative");
+    queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "narrative");
+
+    //Aggiungere query di select
+
+    var q = locusFunctions.composeLocusQuery(body);
+
+    console.log("STAMPO Q!!!");
+    console.log(q);
+
+    queries.push(q);
+
+    /*
+
+    `DROP TEMPORARY TABLE IF EXISTS camera_locus_list_free_type;`,
+                `DROP TEMPORARY TABLE IF EXISTS camera_locus_relationships_free_type;`,
+                `DROP TEMPORARY TABLE IF EXISTS camera_locus_list_type_name;`,
+                `DROP TEMPORARY TABLE IF EXISTS camera_locus_relationships_type_name;`,
+                `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_list_free_type;`,
+                `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_free_type;`,
+                `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_list_type_name;`,
+                `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_type_name;`,
+
+                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_list_free_type;`,
+                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_relationships_free_type;`,
+                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_list_type_name;`,
+                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_relationships_type_name;`,
+                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_list_free_type;`,
+                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_free_type;`,
+                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_list_type_name;`,
+                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_type_name;`,
+
+                `DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
+     */
+    queries.push(`COMMIT;`);
+
+    var indexResults = queries.length - 1;
 
 
     console.log(queries);
@@ -1982,26 +2010,21 @@ function getRapprLuogoFilmFilters(res, req) {
             con.query(query, (error, queryResults) => {
                 if (error) {
                     con.rollback(() => {
+                        console.log("STO ESEGUENDO LA SEGUENTE QUERY: \n\n\n");
+                        console.log(query);
+
+                        console.log("\n\n\n");
                         console.error('Errore nell\'esecuzione della query:', error);
                         con.end();
                     });
                 } else {
                     console.log('Query eseguita con successo:', query);
-                    if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
+                    if (index === indexResults) { // Verifica se questa è la terza query (l'indice 2)
                         console.log('Risultati della terza query:', queryResults);
 
-                        var locusTypeName = queryResults.filter(obj => obj.local_name === "typeName" && obj.class_name === "LocusCatalogueRecord").map(obj => obj.value);
-                        var locusType = queryResults.filter(obj => obj.local_name === "type" && obj.class_name === "LocusCatalogueRecord").map(obj => obj.value);
 
-                        var otherEntitiesTypeName = queryResults.filter(obj => obj.local_name === "typeName" && obj.class_name === "PlaceRepresentationCatalogueRecord").map(obj => obj.value);
-                        var otherEntitiesType = queryResults.filter(obj => obj.local_name === "type" && obj.class_name === "PlaceRepresentationCatalogueRecord").map(obj => obj.value);
-
-                        var season = queryResults.filter(obj => obj.local_name === "seasonInNarrative").map(obj => obj.value);
-                        var weather = queryResults.filter(obj => obj.local_name === "weatherConditionsInNarrative").map(obj => obj.value);
-                        var partOfDay = queryResults.filter(obj => obj.local_name === "partOfDayInNarrative").map(obj => obj.value);
-
-                        results = {locusType: locusType, locusTypeName: locusTypeName, otherEntitiesType: otherEntitiesType, otherEntitiesTypeName: otherEntitiesTypeName, season: season, weather: weather, partOfDay: partOfDay};
-                        //results = queryResults;
+                        //results = {locusType: locusType, locusTypeName: locusTypeName, otherEntitiesType: otherEntitiesType, otherEntitiesTypeName: otherEntitiesTypeName, season: season, weather: weather, partOfDay: partOfDay};
+                        results = queryResults;
                     }
                 }
                 executeBatchQueries(queries, index + 1);

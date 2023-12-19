@@ -1,106 +1,141 @@
 function composeLocusQuery(objectFilters) {
     console.log("COMPOSE FILM TITLE!!");
 
+    var query = "";
+    /*
     var query = `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
                 SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
                 FROM value v
                          JOIN property p ON v.property_id = p.id;
-                `;
+                `;*/
 
     var query_parts = [false, false, false, false];
 
-    //Altre entità mostrate
-    if (objectFilters.otherEntitiesType !== '' && objectFilters.otherEntitiesType !== null) {
-        const otherEntities = `
-                #Seleziona le Rappresentazioni luogo che hanno il nome tipo selezionato
-                SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id JOIN tabella_unica t4 ON t3.value_resource_id = t4.resource_id  WHERE t1.local_name = "hasOtherShownEntitiesData" and t2.local_name = "hasTypeData" and t3.local_name = "hasIRITypeData" and t4.local_name = "typeName" and t4.value = "${objectFilters.otherEntitiesType}"
-                UNION
-                #Seleziona le Rappresentazioni luogo che hanno il tipo libero selezionato
-                SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasOtherShownEntitiesData" and t2.local_name = "hasTypeData" and t3.local_name = "type" and t3.value = "${objectFilters.otherEntitiesType}";
-                \n`;
+    if (objectFilters.ucCastMemberName !== '' && objectFilters.ucCastMemberName !== null) {
 
-        query += otherEntities;
+
+        //            --Seleziona le Rappresentazioni luogo che hanno una certa persona presente (si guarda sia il campo interprete sia il campo personaggio)
+        const titleTextFilmTitle = `
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPresentPersonData" and t2.local_name IN ("presentPersonCastMemberName", "presentPersonCharacterName") and t2.value LIKE "%${objectFilters.ucCastMemberName}%"
+            \n`;
+
+        query += titleTextFilmTitle;
         query_parts[0] = true;
     }
 
-    if (objectFilters.ucCastMemberName !== '' && objectFilters.ucCastMemberName !== null) {
+    //Altre entità mostrate
+    if (objectFilters.otherEntitiesType !== '' && objectFilters.otherEntitiesType !== null) {
+
         if (query_parts[0]) {
             query += '\n INTERSECT \n'
         }
 
-        const titleTextFilmTitle = `
-            #Seleziona le Rappresentazioni luogo che hanno una certa persona presente (si guarda sia il campo interprete sia il campo personaggio)
-            SELECT * from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPresentPersonData" and t2.local_name IN ("presentPersonCastMemberName", "presentPersonCharacterName") and t2.value LIKE "%${objectFilters.ucCastMemberName}%";
-            \n`;
+        //                --Seleziona le Rappresentazioni luogo che hanno il nome tipo selezionato
 
-        query += titleTextFilmTitle;
+        //                --Seleziona le Rappresentazioni luogo che hanno il tipo libero selezionato
+        const otherEntities = `
+                SELECT * FROM (SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id JOIN tabella_unica t4 ON t3.value_resource_id = t4.resource_id  WHERE t1.local_name = "hasOtherShownEntitiesData" and t2.local_name = "hasTypeData" and t3.local_name = "hasIRITypeData" and t4.local_name = "typeName" and t4.value = "${objectFilters.otherEntitiesType}"
+                UNION
+                SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasOtherShownEntitiesData" and t2.local_name = "hasTypeData" and t3.local_name = "type" and t3.value = "${objectFilters.otherEntitiesType}"
+                ) as otherEntitiesType\n`;
+
+        query += otherEntities;
         query_parts[1] = true;
     }
 
-    /*
-    if (objectFilters.titleTypeFilmTitle !== '' && objectFilters.titleTypeFilmTitle !== null) {
-        if (query_parts[0] || query_parts[1]) {
-            query += '\n INTERSECT \n';
-        }
 
-        const titleTypeFilmTitle = `
-        SELECT * FROM 
-            (
-            SELECT v1.resource_id
-            FROM (
-              SELECT v.resource_id, v.value_resource_id, v.value
-              FROM value v
-              JOIN property p ON v.property_id = p.id
-              WHERE p.local_name = "hasFilmTitle"
-            ) AS v1
-            JOIN (
-              SELECT v.resource_id, v.value_resource_id, v.value
-              FROM value v
-              JOIN property p ON v.property_id = p.id
-              WHERE p.local_name = "titleType" AND v.value = '${objectFilters.titleTypeFilmTitle}'
-            ) AS v2
-            ON v1.value_resource_id = v2.resource_id
-            ) as tipo_titolo\n`;
 
-        query += titleTypeFilmTitle;
-        query_parts[2] = true;
+    if (query_parts[0] || query_parts[1]) {
+        query += '\n INTERSECT \n'
     }
 
-    if (objectFilters.titleOtherCharacterizationFilmTitle !== '' && objectFilters.titleOtherCharacterizationFilmTitle !== null) {
-        if (query_parts[0] || query_parts[1] || query_parts[2]) {
-            query += '\n INTERSECT \n';
+    const cameraPlacement = `SELECT *
+                   FROM (
+            SELECT * FROM (SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM locus_list_free_type)
+            UNION
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasDisplayedObject" and t3.value_resource_id IN (SELECT * FROM locus_list_free_type)
+            ) as p1
+            
+            UNION
+            
+            SELECT * FROM (SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM locus_list_type_name)
+            UNION
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasDisplayedObject" and t3.value_resource_id IN (SELECT * FROM locus_list_type_name)
+            ) AS p2
+            
+            UNION
+            
+            SELECT * FROM (SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM locus_over_time_list_free_type)
+            UNION
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasDisplayedObject" and t3.value_resource_id IN (SELECT * FROM locus_over_time_list_free_type)
+            ) AS p3
+            
+            UNION
+            
+            SELECT * FROM (SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM locus_over_time_list_type_name)
+            UNION
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasDisplayedObject" and t3.value_resource_id IN (SELECT * FROM locus_over_time_list_type_name)
+            ) as p4) AS test`;
+
+
+    query += cameraPlacement;
+
+    query += '\n INTERSECT \n';
+
+    //    --Seleziono le Rappresentazioni luogo che hanno un certo contesto narrativo
+    var narrativePlace = `
+    SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id LEFT JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+    WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.value_resource_id IN (SELECT * FROM locus_list_free_type UNION SELECT * FROM locus_list_type_name UNION SELECT * FROM locus_over_time_list_free_type UNION SELECT * FROM locus_over_time_list_type_name)`;
+
+    if((objectFilters.narrativeSeason !== "" && objectFilters.narrativeSeason !== null && objectFilters.narrativeSeason !== undefined)
+        || (objectFilters.narrativeWeather !== "" && objectFilters.narrativeWeather !== null && objectFilters.narrativeWeather !== undefined)
+        || (objectFilters.narrativePartOfDay !== "" && objectFilters.narrativePartOfDay !== null && objectFilters.narrativePartOfDay !== undefined)) {
+
+        var condition_parts = [false, false, false];
+
+        var condition = `INTERSECT
+    SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name IN ("seasonInNarrative", "hasSinglePlaceRepresentationData", "partOfDayInNarrative", "weatherConditionsInNarrative")
+    and (
+    `;
+
+        if(objectFilters.narrativeSeason !== "" && objectFilters.narrativeSeason !== null && objectFilters.narrativeSeason !== undefined){
+            condition += `(t2.local_name = "seasonInNarrative" and t2.value = "${objectFilters.narrativeSeason}")`;
+            condition_parts[0] = true;
         }
 
-        const titleOtherCharacterizationFilmTitle = `
-        SELECT * FROM 
-            (
-            SELECT v1.resource_id
-            FROM (
-              SELECT v.resource_id, v.value_resource_id, v.value
-              FROM value v
-              JOIN property p ON v.property_id = p.id
-              WHERE p.local_name = "hasFilmTitle"
-            ) AS v1
-            JOIN (
-              SELECT v.resource_id, v.value_resource_id, v.value
-              FROM value v
-              JOIN property p ON v.property_id = p.id
-              WHERE p.local_name = "otherTitleCharacterization" AND v.value LIKE '%${objectFilters.titleOtherCharacterizationFilmTitle}%'
-            ) AS v2
-            ON v1.value_resource_id = v2.resource_id
-            ) as altra_caratterizzazione_titolo\n`;
+        if(objectFilters.narrativePartOfDay !== "" && objectFilters.narrativePartOfDay !== null && objectFilters.narrativePartOfDay !== undefined){
 
-        query += titleOtherCharacterizationFilmTitle;
-        query_parts[3] = true;
-    }*/
+            if(condition_parts[0]){
+                condition += " or "
+            }
 
-    query += 'DROP TEMPORARY TABLE IF EXISTS tabella_unica;';
+            condition += `(t2.local_name = "partOfDayInNarrative" and t2.value = "${objectFilters.narrativePartOfDay}")`;
+            condition_parts[1] = true;
+        }
 
+        if(objectFilters.narrativeWeather !== "" && objectFilters.narrativeWeather !== null && objectFilters.narrativeWeather !== undefined){
+
+            if(condition_parts[0] || condition_parts[1]){
+                condition += " or "
+            }
+
+            condition += `(t2.local_name = "weatherConditionsInNarrative" and t2.value = "${objectFilters.narrativeWeather}")`;
+            condition_parts[1] = true;
+        }
+
+        condition += ")";
+
+        narrativePlace += condition;
+    }
+
+    narrativePlace += ";"
+
+    query += narrativePlace;
 
     return query;
 }
 
-function composeLocusRelationships(queries, ids, type) {
+function composeLocusRelationships(queries, ids, type, filter) {
     console.log("SONO IN composeLocusRelationshipsFreeType");
 
     console.log(queries);
@@ -110,7 +145,7 @@ function composeLocusRelationships(queries, ids, type) {
     const string_ids = ids.join(', ');
 
     //Tipo libero
-    queries.push(`CREATE TEMPORARY TABLE IF NOT EXISTS locus_relationships_free_type AS
+    queries.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_relationships_free_type AS
                     WITH RECURSIVE RelationsCTE AS (SELECT t1.resource_id,
                                                            t1.property_id,
                                                            t1.local_name,
@@ -189,10 +224,10 @@ function composeLocusRelationships(queries, ids, type) {
                     `);
 
 
-    var q = `CREATE TEMPORARY TABLE IF NOT EXISTS locus_list_free_type AS (
+    var q = `CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_list_free_type AS (
             SELECT distinct resource_id
             FROM (SELECT *
-                  FROM locus_relationships_free_type
+                  FROM ${filter}_locus_relationships_free_type
             
                   UNION
             
@@ -230,8 +265,8 @@ function composeLocusRelationships(queries, ids, type) {
                     and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
                     and tipi.local_name = "hasTypeData") AS luoghi`;
 
-    if(type !== "" && type !== null && type !== undefined){
-        q+= ` WHERE tipolibero_value like "${type}"`
+    if (type !== "" && type !== null && type !== undefined) {
+        q += ` WHERE tipolibero_value like "${type}"`
     }
 
     q += ');';
@@ -239,9 +274,8 @@ function composeLocusRelationships(queries, ids, type) {
     queries.push(q);
 
 
-
     //Nome tipo
-    queries.push(`CREATE TEMPORARY TABLE IF NOT EXISTS locus_relationships_type_name AS
+    queries.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_relationships_type_name AS
                     WITH RECURSIVE RelationsCTE AS (SELECT t1.resource_id,
                                                            t1.property_id,
                                                            t1.local_name,
@@ -333,10 +367,10 @@ function composeLocusRelationships(queries, ids, type) {
                     `);
 
 
-    var q = `CREATE TEMPORARY TABLE IF NOT EXISTS locus_list_type_name AS (
+    var q = `CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_list_type_name AS (
             SELECT distinct resource_id
             FROM (SELECT *
-                  FROM locus_relationships_type_name
+                  FROM ${filter}_locus_relationships_type_name
             
                   UNION
             
@@ -383,8 +417,8 @@ function composeLocusRelationships(queries, ids, type) {
                     and nometipo.local_name = "typeName") AS luoghi
             `;
 
-    if(type !== "" && type !== null && type !== undefined){
-        q+= ` WHERE nometipo_value like "${type}"`
+    if (type !== "" && type !== null && type !== undefined) {
+        q += ` WHERE nometipo_value like "${type}"`
     }
 
     q += ');';
@@ -397,8 +431,7 @@ function composeLocusRelationships(queries, ids, type) {
 }
 
 
-
-function composeLocusOverTime(queries, ids, type) {
+function composeLocusOverTime(queries, ids, type, filter) {
     console.log("SONO IN composeLocusOverTime");
 
     console.log(queries);
@@ -408,7 +441,7 @@ function composeLocusOverTime(queries, ids, type) {
     const string_ids = ids.join(', ');
 
     //Tipo libero
-    queries.push(`CREATE TEMPORARY TABLE IF NOT EXISTS locus_over_time_free_type AS
+    queries.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_over_time_free_type AS
                     WITH RECURSIVE RelationsCTE AS (
                         SELECT t1.resource_id, t1.property_id, t1.local_name, t1.value_resource_id, t1.value,
                                t2.resource_id AS t2_resource_id, t2.property_id AS t2_property_id,
@@ -456,12 +489,12 @@ function composeLocusOverTime(queries, ids, type) {
                     `);
 
 
-    var q = `CREATE TEMPORARY TABLE IF NOT EXISTS locus_over_time_list_free_type AS (
-            SELECT resource_id FROM locus_over_time_free_type
+    var q = `CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_over_time_list_free_type AS (
+            SELECT resource_id FROM ${filter}_locus_over_time_free_type
             `;
 
-    if(type !== "" && type !== null && type !== undefined){
-        q+= ` WHERE tipolibero_value like "${type}"`
+    if (type !== "" && type !== null && type !== undefined) {
+        q += ` WHERE tipolibero_value like "${type}"`
     }
 
     q += ');';
@@ -469,9 +502,8 @@ function composeLocusOverTime(queries, ids, type) {
     queries.push(q);
 
 
-
     //Nome tipo
-    queries.push(`CREATE TEMPORARY TABLE IF NOT EXISTS locus_over_time_type_name AS
+    queries.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_over_time_type_name AS
                 WITH RECURSIVE RelationsCTE AS (
                     SELECT t1.resource_id, t1.property_id, t1.local_name, t1.value_resource_id, t1.value,
                            t2.resource_id AS t2_resource_id, t2.property_id AS t2_property_id,
@@ -527,12 +559,12 @@ function composeLocusOverTime(queries, ids, type) {
                     `);
 
 
-    var q = `CREATE TEMPORARY TABLE IF NOT EXISTS locus_over_time_list_type_name AS (
-    SELECT resource_id FROM locus_over_time_type_name
+    var q = `CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_over_time_list_type_name AS (
+    SELECT resource_id FROM ${filter}_locus_over_time_type_name
             `;
 
-    if(type !== "" && type !== null && type !== undefined){
-        q+= ` WHERE nometipo_value like "${type}"`
+    if (type !== "" && type !== null && type !== undefined) {
+        q += ` WHERE nometipo_value like "${type}"`
     }
 
     q += ');';
