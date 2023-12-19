@@ -4,7 +4,7 @@ const mysql = require("mysql");
 const {parse} = require("url");
 const NodeCache = require('node-cache');
 const cache = new NodeCache();
-const production = true;
+const production = false;
 const functions = require("./composeFilmQuery");
 const locusFunctions = require("./composeLocusQuery");
 
@@ -1923,6 +1923,8 @@ function areAllFiltersEmpty(obj) {
     return true;
 }
 
+
+
 function getRapprLuogoFilmFilters(res, req) {
     console.log("BODY");
     console.log(req.body);
@@ -1936,4 +1938,87 @@ function getRapprLuogoFilmFilters(res, req) {
     console.log("QUERY");
     console.log(query);
 
+    var con = mysql.createConnection({
+        host: "localhost",
+        user: "root",
+        password: "omekas_prin_2022",
+        database: dbname
+    });
+
+    var queries = [
+        `START TRANSACTION`,
+
+        `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+        SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
+        FROM value v
+         JOIN property p ON v.property_id = p.id;`,
+        // Aggiungi altre query qui
+    ];
+
+    //Qua devo aggiungere le query intermedie
+
+    queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType);
+    queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType);
+
+    queries.push(`DROP TEMPORARY TABLE IF EXISTS locus_list_free_type;`,
+        `DROP TEMPORARY TABLE IF EXISTS locus_relationships_free_type;`,
+        `DROP TEMPORARY TABLE IF EXISTS locus_list_type_name;`,
+        `DROP TEMPORARY TABLE IF EXISTS locus_relationships_type_name;`,
+        `DROP TEMPORARY TABLE IF EXISTS locus_over_time_list_free_type;`,
+        `DROP TEMPORARY TABLE IF EXISTS locus_over_time_free_type;`,
+        `DROP TEMPORARY TABLE IF EXISTS locus_over_time_list_type_name;`,
+        `DROP TEMPORARY TABLE IF EXISTS locus_over_time_type_name;`,
+        `DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
+        `COMMIT;`);
+
+
+    console.log(queries);
+
+    var results = []; // Array per salvare i risultati della terza query
+
+    function executeBatchQueries(queries, index = 0) {
+        if (index < queries.length) {
+            const query = queries[index];
+            con.query(query, (error, queryResults) => {
+                if (error) {
+                    con.rollback(() => {
+                        console.error('Errore nell\'esecuzione della query:', error);
+                        con.end();
+                    });
+                } else {
+                    console.log('Query eseguita con successo:', query);
+                    if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
+                        console.log('Risultati della terza query:', queryResults);
+
+                        var locusTypeName = queryResults.filter(obj => obj.local_name === "typeName" && obj.class_name === "LocusCatalogueRecord").map(obj => obj.value);
+                        var locusType = queryResults.filter(obj => obj.local_name === "type" && obj.class_name === "LocusCatalogueRecord").map(obj => obj.value);
+
+                        var otherEntitiesTypeName = queryResults.filter(obj => obj.local_name === "typeName" && obj.class_name === "PlaceRepresentationCatalogueRecord").map(obj => obj.value);
+                        var otherEntitiesType = queryResults.filter(obj => obj.local_name === "type" && obj.class_name === "PlaceRepresentationCatalogueRecord").map(obj => obj.value);
+
+                        var season = queryResults.filter(obj => obj.local_name === "seasonInNarrative").map(obj => obj.value);
+                        var weather = queryResults.filter(obj => obj.local_name === "weatherConditionsInNarrative").map(obj => obj.value);
+                        var partOfDay = queryResults.filter(obj => obj.local_name === "partOfDayInNarrative").map(obj => obj.value);
+
+                        results = {locusType: locusType, locusTypeName: locusTypeName, otherEntitiesType: otherEntitiesType, otherEntitiesTypeName: otherEntitiesTypeName, season: season, weather: weather, partOfDay: partOfDay};
+                        //results = queryResults;
+                    }
+                }
+                executeBatchQueries(queries, index + 1);
+            });
+        } else {
+            // Chiudi la connessione quando tutte le query sono state eseguite
+            con.end();
+            // Restituisci i risultati della terza query al frontend
+            console.log('Risultati finali da restituire al frontend:', results);
+
+            res.writeHead(200, {"Content-Type": "application/json"});
+            res.end(
+                JSON.stringify(results)
+            );
+
+        }
+    }
+
+    executeBatchQueries(queries);
 }
