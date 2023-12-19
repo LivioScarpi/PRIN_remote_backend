@@ -45,11 +45,13 @@ function composeLocusQuery(objectFilters) {
 
 
 
-    if (query_parts[0] || query_parts[1]) {
-        query += '\n INTERSECT \n'
-    }
+    if(objectFilters.cameraPlacementLocusInRegionIDs.length > 0) {
 
-    const cameraPlacement = `SELECT *
+        if (query_parts[0] || query_parts[1]) {
+            query += '\n INTERSECT \n'
+        }
+
+        const cameraPlacement = `SELECT *
                    FROM (
             SELECT * FROM (SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM camera_locus_list_free_type)
             UNION
@@ -78,59 +80,69 @@ function composeLocusQuery(objectFilters) {
             ) as p4) AS test`;
 
 
-    query += cameraPlacement;
+        query += cameraPlacement;
 
-    query += '\n INTERSECT \n';
+        query_parts[2] = true;
+    }
 
-    //    --Seleziono le Rappresentazioni luogo che hanno un certo contesto narrativo
-    var narrativePlace = `
+    if(objectFilters.narrativeLocusInRegionIDs.length > 0) {
+
+        if (query_parts[0] || query_parts[1] || query_parts[2]) {
+            query += '\n INTERSECT \n'
+        }
+
+        //    --Seleziono le Rappresentazioni luogo che hanno un certo contesto narrativo
+        var narrativePlace = `
     SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id LEFT JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
     WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.value_resource_id IN (SELECT * FROM narrative_locus_list_free_type UNION SELECT * FROM narrative_locus_list_type_name UNION SELECT * FROM narrative_locus_over_time_list_free_type UNION SELECT * FROM narrative_locus_over_time_list_type_name)`;
 
-    if((objectFilters.narrativeSeason !== "" && objectFilters.narrativeSeason !== null && objectFilters.narrativeSeason !== undefined)
-        || (objectFilters.narrativeWeather !== "" && objectFilters.narrativeWeather !== null && objectFilters.narrativeWeather !== undefined)
-        || (objectFilters.narrativePartOfDay !== "" && objectFilters.narrativePartOfDay !== null && objectFilters.narrativePartOfDay !== undefined)) {
+        if ((objectFilters.narrativeSeason !== "" && objectFilters.narrativeSeason !== null && objectFilters.narrativeSeason !== undefined)
+            || (objectFilters.narrativeWeather !== "" && objectFilters.narrativeWeather !== null && objectFilters.narrativeWeather !== undefined)
+            || (objectFilters.narrativePartOfDay !== "" && objectFilters.narrativePartOfDay !== null && objectFilters.narrativePartOfDay !== undefined)) {
 
-        var condition_parts = [false, false, false];
+            var condition_parts = [false, false, false];
 
-        var condition = `INTERSECT
+            var condition = `INTERSECT
     SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name IN ("seasonInNarrative", "hasSinglePlaceRepresentationData", "partOfDayInNarrative", "weatherConditionsInNarrative")
     and (
     `;
 
-        if(objectFilters.narrativeSeason !== "" && objectFilters.narrativeSeason !== null && objectFilters.narrativeSeason !== undefined){
-            condition += `(t2.local_name = "seasonInNarrative" and t2.value = "${objectFilters.narrativeSeason}")`;
-            condition_parts[0] = true;
-        }
-
-        if(objectFilters.narrativePartOfDay !== "" && objectFilters.narrativePartOfDay !== null && objectFilters.narrativePartOfDay !== undefined){
-
-            if(condition_parts[0]){
-                condition += " or "
+            if (objectFilters.narrativeSeason !== "" && objectFilters.narrativeSeason !== null && objectFilters.narrativeSeason !== undefined) {
+                condition += `(t2.local_name = "seasonInNarrative" and t2.value = "${objectFilters.narrativeSeason}")`;
+                condition_parts[0] = true;
             }
 
-            condition += `(t2.local_name = "partOfDayInNarrative" and t2.value = "${objectFilters.narrativePartOfDay}")`;
-            condition_parts[1] = true;
-        }
+            if (objectFilters.narrativePartOfDay !== "" && objectFilters.narrativePartOfDay !== null && objectFilters.narrativePartOfDay !== undefined) {
 
-        if(objectFilters.narrativeWeather !== "" && objectFilters.narrativeWeather !== null && objectFilters.narrativeWeather !== undefined){
+                if (condition_parts[0]) {
+                    condition += " or "
+                }
 
-            if(condition_parts[0] || condition_parts[1]){
-                condition += " or "
+                condition += `(t2.local_name = "partOfDayInNarrative" and t2.value = "${objectFilters.narrativePartOfDay}")`;
+                condition_parts[1] = true;
             }
 
-            condition += `(t2.local_name = "weatherConditionsInNarrative" and t2.value = "${objectFilters.narrativeWeather}")`;
-            condition_parts[1] = true;
+            if (objectFilters.narrativeWeather !== "" && objectFilters.narrativeWeather !== null && objectFilters.narrativeWeather !== undefined) {
+
+                if (condition_parts[0] || condition_parts[1]) {
+                    condition += " or "
+                }
+
+                condition += `(t2.local_name = "weatherConditionsInNarrative" and t2.value = "${objectFilters.narrativeWeather}")`;
+                condition_parts[1] = true;
+            }
+
+            condition += ")";
+
+            narrativePlace += condition;
         }
 
-        condition += ")";
+        narrativePlace += ";"
 
-        narrativePlace += condition;
+        query += narrativePlace;
+
+        query_parts[3] = true;
     }
-
-    narrativePlace += ";"
-
-    query += narrativePlace;
 
     return query;
 }

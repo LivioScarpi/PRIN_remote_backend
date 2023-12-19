@@ -1957,15 +1957,18 @@ function getRapprLuogoFilmFilters(res, req) {
 
     //Qua devo aggiungere le query intermedie
 
-    queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
-    queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
+    if(body.cameraPlacementLocusInRegionIDs.length > 0) {
+        queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
+        queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
+    }
 
+    if(body.narrativeLocusInRegionIDs.length > 0) {
+        queries = locusFunctions.composeLocusRelationships(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative");
+        queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative");
+    }
 
-    queries = locusFunctions.composeLocusRelationships(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative");
-    queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative");
 
     //Aggiungere query di select
-
     var q = locusFunctions.composeLocusQuery(body);
 
     console.log("STAMPO Q!!!");
