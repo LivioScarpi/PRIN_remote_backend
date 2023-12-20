@@ -156,6 +156,7 @@ app.get("/", (req, res) => {
 //----------PARTE NUOVA----------
 
 let locusRelationshipsDictionary = {};
+let locusOverTimeRelationshipsDictionary = {};
 
 // Configurazione del tuo database
 const connection = mysql.createConnection({
@@ -170,6 +171,32 @@ connection.connect(async (err) => {
     }
     console.log('Connesso al database MariaDB');
 
+
+    try {
+        console.log("Ottengo le strutture dati");
+        // Ottieni entrambe le strutture dati prima di avviare il server
+        const [locusRelationships, locusOverTimeRelationships] = await Promise.all([getLocusRelationships(), getLocusOverTimeRelationships()]);
+
+        console.log("Strutture dati ottenute");
+        //console.log('LocusRelationships:', locusRelationships);
+        //console.log('locusOverTimeRelationships:', locusOverTimeRelationships);
+
+        locusRelationshipsDictionary = locusRelationships;
+        locusOverTimeRelationshipsDictionary = locusOverTimeRelationships;
+
+        // Avvia il server Express solo dopo aver ottenuto entrambe le strutture dati
+        app.listen(portNumber, "localhost", () => {
+            console.log("Server in ascolto sulla porta " + portNumber);
+        });
+
+        // Aggiornamento delle strutture dati ogni tot millisecondi (ad esempio ogni 24 ore)
+        const intervalInMilliseconds = 30000; //1 * 60 * 60 * 1000; // 24 ore
+        setInterval(updateData, intervalInMilliseconds);
+    } catch (error) {
+        console.error('Errore durante il recupero delle strutture dati:', error);
+    }
+
+    /*
     try {
         // Ottieni la mappa dei luoghi prima di avviare il server
         const initialMap = await getLocusRelationships();
@@ -187,28 +214,28 @@ connection.connect(async (err) => {
         setInterval(updateLocusRelationships, intervalInMilliseconds);
     } catch (error) {
         console.error('Errore durante l\'ottenimento della mappa dei luoghi:', error);
-    }
+    }*/
 });
 
-// Funzione per aggiornare la mappa dei luoghi ricorsivamente
-function updateLocusRelationships() {
-    console.log("RICHIEDO LE RELAZIONI DEI LUOGHI");
-    getLocusRelationships()
-        .then((result) => {
-            locusRelationshipsDictionary = result; // Aggiorna la variabile globale con la nuova mappa
-            console.log('Mappa dei luoghi aggiornata:', locusRelationshipsDictionary);
+// Funzione per aggiornare le strutture dati
+function updateData() {
+    console.log("Aggiorno le strutture dati");
+
+    Promise.all([getLocusRelationships(), getLocusOverTimeRelationships()])
+        .then(([updatedLocusRelationships, updatedLocuOverTimesRelationships]) => {
+            locusRelationshipsDictionary = updatedLocusRelationships;
+            locusOverTimeRelationshipsDictionary = updatedLocuOverTimesRelationships;
+            //console.log('Strutture dati aggiornate:', updatedLocusRelationships, updatedLocuOverTimesRelationships);
+            console.log("Strutture dati aggionate");
         })
         .catch((err) => {
-            console.error('Errore durante l\'aggiornamento della mappa:', err);
+            console.error('Errore durante l\'aggiornamento delle strutture dati:', err);
         });
 }
-
 
 // Funzione per ottenere la mappa dei luoghi ricorsivamente
 function getLocusRelationships() {
     return new Promise((resolve, reject) => {
-
-
         const queries = [`START TRANSACTION`,
 
             `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
@@ -261,82 +288,146 @@ function getLocusRelationships() {
 
             `SELECT resource_id, t2_value_resource_id FROM locus_relationships_free_type;`,
 
-            `DROP TEMPORARY TABLE locus;`,
+            //`DROP TEMPORARY TABLE IF EXISTS locus;`,
 
-            `DROP TEMPORARY TABLE locus_relationships_free_type;`,
+            //`DROP TEMPORARY TABLE IF EXISTS locus_relationships_free_type;`,
 
-            `DROP TEMPORARY TABLE tabella_unica;`,
+            //`DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
 
             `COMMIT;`, // Aggiungi altre query qui
         ];
 
         var results = []; // Array per salvare i risultati della terza query
 
-        function executeBatchQueries(queries, index = 0) {
+        function executeBatchQueries(queries, index) {
             if (index < queries.length) {
                 const query = queries[index];
                 connection.query(query, (error, queryResults) => {
                     if (error) {
                         connection.rollback(() => {
-                            console.error('Errore nell\'esecuzione della query:', error);
+                            console.error('getLocusRelationships - Errore nell\'esecuzione della query:', error);
                             //connection.end();
                         });
                     } else {
-                        console.log('Query eseguita con successo:', query);
                         if (index === 4) { // Verifica se questa è la terza query (l'indice 2)
-                            console.log('Risultati della terza query:', queryResults);
-
                             let mappedArray = queryResults.map(item => [item.resource_id, item.t2_value_resource_id]);
-                            console.log(mappedArray);
-
-
                             var dictionary = getDictionary(mappedArray);
-
-                            console.log(dictionary);
-
                             results = dictionary;
                         }
                     }
                     executeBatchQueries(queries, index + 1);
                 });
             } else {
-                // Chiudi la connessione quando tutte le query sono state eseguite
-                //connection.end();
-                // Restituisci i risultati della terza query al frontend
-                console.log('Risultati finali da restituire al frontend:', results);
-
                 resolve(results);
-                /*
-                res.writeHead(200, {"Content-Type": "application/json"});
-                res.end(
-                    JSON.stringify(results)
-                );*/
-
             }
         }
 
-        executeBatchQueries(queries);
+        executeBatchQueries(queries, 0);
 
-        /*
-        const query = 'SELECT id, GROUP_CONCAT(luogo_correlato_id) AS correlati FROM luoghi GROUP BY id';
-        connection.query(query, (err, rows) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-
-            const resultMap = new Map();
-            rows.forEach(row => {
-                const placeId = row.id;
-                const relatedPlaces = row.correlati.split(',').map(Number);
-                resultMap.set(placeId, relatedPlaces);
-            });
-
-            resolve(resultMap);
-        });*/
     });
 }
 
+
+// Funzione per ottenere la mappa dei luoghi ricorsivamente
+function getLocusOverTimeRelationships() {
+    return new Promise((resolve, reject) => {
+
+
+        const queries = [`START TRANSACTION`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+            SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
+            FROM value v
+             JOIN property p ON v.property_id = p.id;`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS locus AS
+            SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="LocusCatalogueRecord";
+            `,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS locus_over_time_free_type AS
+            WITH RECURSIVE RelationsCTE AS (
+                SELECT t1.resource_id, t1.property_id, t1.local_name, t1.value_resource_id, t1.value,
+                       t2.resource_id AS t2_resource_id, t2.property_id AS t2_property_id,
+                       t2.local_name AS t2_local_name, t2.value_resource_id AS t2_value_resource_id, t2.value AS t2_value,
+                       t3.resource_id AS t3_resource_id, t3.property_id AS t3_property_id,
+                       t3.local_name AS t3_local_name, t3.value_resource_id AS t3_value_resource_id, t3.value AS t3_value,
+                       tipi.resource_id AS tipi_resource_id, tipi.property_id AS tipi_property_id,
+                       tipi.local_name AS tipi_local_name, tipi.value_resource_id AS tipi_value_resource_id, tipi.value AS tipi_value,
+                       tipolibero.resource_id AS tipolibero_resource_id, tipolibero.property_id AS tipolibero_property_id,
+                       tipolibero.local_name AS tipolibero_local_name, tipolibero.value_resource_id AS tipolibero_value_resource_id, tipolibero.value AS tipolibero_value
+                FROM tabella_unica t1
+                         JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
+                         JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+                         JOIN tabella_unica tipi ON t1.value_resource_id = tipi.resource_id
+                         JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
+                WHERE t1.local_name = 'hasLocusOverTimeData'
+                  AND t2.local_name = 'hasRelationshipsWithLociData'
+                  AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf')
+                  -- Aggiunta della condizione per la ricorsione
+                  AND t3.value_resource_id IN (SELECT object_id FROM locus)
+            
+                UNION ALL
+            
+                SELECT t1.resource_id, t1.property_id, t1.local_name, t1.value_resource_id, t1.value,
+                       t2.resource_id AS t2_resource_id, t2.property_id AS t2_property_id,
+                       t2.local_name AS t2_local_name, t2.value_resource_id AS t2_value_resource_id, t2.value AS t2_value,
+                       t3.resource_id AS t3_resource_id, t3.property_id AS t3_property_id,
+                       t3.local_name AS t3_local_name, t3.value_resource_id AS t3_value_resource_id, t3.value AS t3_value,
+                       tipi.resource_id AS tipi_resource_id, tipi.property_id AS tipi_property_id,
+                       tipi.local_name AS tipi_local_name, tipi.value_resource_id AS tipi_value_resource_id, tipi.value AS tipi_value,
+                       tipolibero.resource_id AS tipolibero_resource_id, tipolibero.property_id AS tipolibero_property_id,
+                       tipolibero.local_name AS tipolibero_local_name, tipolibero.value_resource_id AS tipolibero_value_resource_id, tipolibero.value AS tipolibero_value
+                FROM tabella_unica t1
+                         JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
+                         JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+                         JOIN RelationsCTE r ON t3.value_resource_id = r.resource_id
+                         JOIN tabella_unica tipi ON t1.value_resource_id = tipi.resource_id
+                         JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
+                WHERE t1.local_name = 'hasLocusOverTimeData'
+                  AND t2.local_name = 'hasRelationshipsWithLociData'
+                  AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf')
+            )
+            SELECT *
+            FROM RelationsCTE;`,
+
+            `SELECT resource_id, t3_value_resource_id FROM locus_over_time_free_type;`,
+
+            //`DROP TEMPORARY TABLE IF EXISTS locus;`,
+
+            //`DROP TEMPORARY TABLE IF EXISTS locus_over_time_free_type;`,
+
+            //`DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
+
+            `COMMIT;`, // Aggiungi altre query qui
+        ];
+
+        var results = []; // Array per salvare i risultati della terza query
+
+        function executeBatchQueries(queries, index) {
+            if (index < queries.length) {
+                const query = queries[index];
+                connection.query(query, (error, queryResults) => {
+                    if (error) {
+                        connection.rollback(() => {
+                            console.error('getLocusOverTimeRelationships - Errore nell\'esecuzione della query:', error);
+                        });
+                    } else {
+                        if (index === 4) { // Verifica se questa è la terza query (l'indice 2)
+                            let mappedArray = queryResults.map(item => [item.resource_id, item.t3_value_resource_id]);
+                            var dictionary = getDictionary(mappedArray);
+                            results = dictionary;
+                        }
+                    }
+                    executeBatchQueries(queries, index + 1);
+                });
+            } else {
+                resolve(results);
+            }
+        }
+
+        executeBatchQueries(queries, 0);
+    });
+}
 
 function getDictionary(data) {
     let result = {};
@@ -2081,12 +2172,12 @@ function getRapprLuogoFilmFilters(res, req) {
 
     if (body.cameraPlacementLocusInRegionIDs.length > 0) {
         queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusRelationshipsDictionary);
-        queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusRelationshipsDictionary);
+        queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusOverTimeRelationshipsDictionary);
     }
 
     if (body.narrativeLocusInRegionIDs.length > 0) {
         queries = locusFunctions.composeLocusRelationships(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusRelationshipsDictionary);
-        queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusRelationshipsDictionary);
+        queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusOverTimeRelationshipsDictionary);
     }
 
 
