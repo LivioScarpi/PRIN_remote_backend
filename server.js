@@ -155,6 +155,8 @@ app.get("/", (req, res) => {
 
 //----------PARTE NUOVA----------
 
+let locusRelationshipsDictionary = {};
+
 // Configurazione del tuo database
 const connection = mysql.createConnection({
     user: 'root', host: 'localhost', database: dbname, password: 'omekas_prin_2022', port: 3306, // Porta di default di PostgreSQL
@@ -173,18 +175,33 @@ connection.connect(async (err) => {
         const initialMap = await getLocusRelationships();
         console.log('Mappa dei luoghi iniziale:', initialMap);
 
+        locusRelationshipsDictionary = initialMap;
+
         // Avvia il server Express dopo aver ottenuto la mappa
         app.listen(portNumber, "localhost", () => {
             console.log("Listening for requests");
         });
 
-        // Aggiornamento della mappa dei luoghi ogni tot millisecondi (ad esempio ogni 24 ore)
-        //const intervalInMilliseconds = 24 * 60 * 60 * 1000; // 24 ore
-        //setInterval(updateRecursiveMap, intervalInMilliseconds);
+        // Aggiornamento della mappa dei luoghi ogni tot millisecondi (ad esempio ogni ora)
+        const intervalInMilliseconds = 1 * 60 * 60 * 1000; // 24 ore: 24 * 60 * 60 * 1000
+        setInterval(updateLocusRelationships, intervalInMilliseconds);
     } catch (error) {
         console.error('Errore durante l\'ottenimento della mappa dei luoghi:', error);
     }
 });
+
+// Funzione per aggiornare la mappa dei luoghi ricorsivamente
+function updateLocusRelationships() {
+    console.log("RICHIEDO LE RELAZIONI DEI LUOGHI");
+    getLocusRelationships()
+        .then((result) => {
+            locusRelationshipsDictionary = result; // Aggiorna la variabile globale con la nuova mappa
+            console.log('Mappa dei luoghi aggiornata:', locusRelationshipsDictionary);
+        })
+        .catch((err) => {
+            console.error('Errore durante l\'aggiornamento della mappa:', err);
+        });
+}
 
 
 // Funzione per ottenere la mappa dei luoghi ricorsivamente
@@ -262,7 +279,7 @@ function getLocusRelationships() {
                     if (error) {
                         connection.rollback(() => {
                             console.error('Errore nell\'esecuzione della query:', error);
-                            connection.end();
+                            //connection.end();
                         });
                     } else {
                         console.log('Query eseguita con successo:', query);
@@ -277,16 +294,18 @@ function getLocusRelationships() {
 
                             console.log(dictionary);
 
+                            results = dictionary;
                         }
                     }
                     executeBatchQueries(queries, index + 1);
                 });
             } else {
                 // Chiudi la connessione quando tutte le query sono state eseguite
-                connection.end();
+                //connection.end();
                 // Restituisci i risultati della terza query al frontend
                 console.log('Risultati finali da restituire al frontend:', results);
 
+                resolve(results);
                 /*
                 res.writeHead(200, {"Content-Type": "application/json"});
                 res.end(
@@ -322,7 +341,7 @@ function getLocusRelationships() {
 function getDictionary(data) {
     let result = {};
 
-// Costruzione del dizionario
+    // Costruzione del dizionario
     data.forEach(([place, part_of]) => {
         if (!result[part_of]) {
             result[part_of] = [];
@@ -334,21 +353,31 @@ function getDictionary(data) {
         result[part_of].push(place);
     });
 
+    // Funzione per ottenere gli elementi correlati
+    function getRelatedPlaces(place) {
+        let related = result[place] || [];
+        related.forEach(p => {
+            related = [...new Set([...related, ...getRelatedPlaces(p)])];
+        });
+        return related;
+    }
+
+    // Creazione di un array piatto di tutti i valori
+    const allKeys = Array.from(new Set(data.reduce((acc, [a, b]) => acc.concat(a, b), [])));
+
     // Aggiunta degli elementi correlati
     Object.keys(result).forEach(place => {
-        result[place] = [...new Set(getRelatedPlaces(result, place).filter(p => p !== parseInt(place)))];
+        result[place] = [...new Set(getRelatedPlaces(place).filter(p => p !== parseInt(place)))];
     });
 
-    console.log("DATA");
-    console.log(data);
-
-// Aggiunta delle chiavi mancanti con liste vuote
-    const allKeys = data.flat().filter((value, index, self) => self.indexOf(value) === index);
+    // Aggiunta delle chiavi mancanti con liste vuote
     allKeys.forEach(key => {
         if (!result[key]) {
             result[key] = [];
         }
     });
+
+    return result;
 }
 
 
@@ -2051,13 +2080,13 @@ function getRapprLuogoFilmFilters(res, req) {
     //Qua devo aggiungere le query intermedie
 
     if (body.cameraPlacementLocusInRegionIDs.length > 0) {
-        queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
-        queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
+        queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusRelationshipsDictionary);
+        queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusRelationshipsDictionary);
     }
 
     if (body.narrativeLocusInRegionIDs.length > 0) {
-        queries = locusFunctions.composeLocusRelationships(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative");
-        queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative");
+        queries = locusFunctions.composeLocusRelationships(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusRelationshipsDictionary);
+        queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusRelationshipsDictionary);
     }
 
 

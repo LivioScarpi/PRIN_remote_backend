@@ -147,7 +147,31 @@ function composeLocusQuery(objectFilters) {
     return query;
 }
 
-function composeLocusRelationships(queries, ids, type, filter) {
+
+function ottieniValoriConnessi(inputList, data) {
+    const result = [...inputList]; // Copia della lista di input
+
+    // Funzione ricorsiva per trovare i valori connessi
+    function trovaValoriConnessi(numero) {
+        if (data[numero]) {
+            data[numero].forEach(valore => {
+                if (!result.includes(valore)) {
+                    result.push(valore);
+                    trovaValoriConnessi(valore); // Richiama la funzione per esplorare ulteriori valori
+                }
+            });
+        }
+    }
+
+    // Trova i valori connessi per ciascun numero nella lista di input
+    inputList.forEach(numero => {
+        trovaValoriConnessi(numero);
+    });
+
+    return result;
+}
+
+function composeLocusRelationships(queries, ids, type, filter, locusRelationshipsDictionary) {
     console.log("SONO IN composeLocusRelationshipsFreeType");
 
     console.log(queries);
@@ -156,7 +180,14 @@ function composeLocusRelationships(queries, ids, type, filter) {
 
     const string_ids = ids.join(', ');
 
+    var list = ottieniValoriConnessi(ids, locusRelationshipsDictionary);
+    console.log("LIST");
+
+    console.log(list);
+    const list_string_ids = list.join(', ');
+
     //Tipo libero
+    /*
     queries.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_relationships_free_type AS
                     WITH RECURSIVE RelationsCTE AS (SELECT t1.resource_id,
                                                            t1.property_id,
@@ -233,16 +264,12 @@ function composeLocusRelationships(queries, ids, type, filter) {
                                                       and t2.local_name IN ('locusLocatedIn', 'locusIsPartOf'))
                     SELECT *
                     FROM RelationsCTE;
-                    `);
+                    `);*/
 
 
     var q = `CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_list_free_type AS (
             SELECT distinct resource_id
-            FROM (SELECT *
-                  FROM ${filter}_locus_relationships_free_type
-            
-                  UNION
-            
+            FROM (
                   SELECT t1.resource_id,
                          t1.property_id,
                          t1.local_name,
@@ -273,7 +300,7 @@ function composeLocusRelationships(queries, ids, type, filter) {
                            JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
                            JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
                            JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
-                  WHERE t1.resource_id IN (${string_ids})
+                  WHERE t1.resource_id IN (${list_string_ids})
                     and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
                     and tipi.local_name = "hasTypeData") AS luoghi`;
 
@@ -287,6 +314,7 @@ function composeLocusRelationships(queries, ids, type, filter) {
 
 
     //Nome tipo
+    /*
     queries.push(`CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_relationships_type_name AS
                     WITH RECURSIVE RelationsCTE AS (SELECT t1.resource_id,
                                                            t1.property_id,
@@ -376,16 +404,12 @@ function composeLocusRelationships(queries, ids, type, filter) {
                     SELECT *
                     FROM RelationsCTE;
 
-                    `);
+                    `);*/
 
 
     var q = `CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_list_type_name AS (
             SELECT distinct resource_id
-            FROM (SELECT *
-                  FROM ${filter}_locus_relationships_type_name
-            
-                  UNION
-            
+            FROM (
                   SELECT t1.resource_id,
                          t1.property_id,
                          t1.local_name,
@@ -422,7 +446,7 @@ function composeLocusRelationships(queries, ids, type, filter) {
                            JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
                            JOIN tabella_unica tipoiri ON tipi.value_resource_id = tipoiri.resource_id
                            JOIN tabella_unica nometipo ON tipoiri.value_resource_id = nometipo.resource_id
-                  WHERE t1.resource_id IN (${string_ids})
+                  WHERE t1.resource_id IN (${list_string_ids})
                     and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
                     and tipi.local_name = "hasTypeData"
                     and tipoiri.local_name = "hasIRITypeData"
