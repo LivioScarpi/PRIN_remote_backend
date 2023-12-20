@@ -85,8 +85,7 @@ app.get("/server/overview", (req, res) => {
 
 app.get("/server/jsontest", (req, res) => {
     res.json({
-        product_id: "xyz12u3",
-        product_name: "NginX injector",
+        product_id: "xyz12u3", product_name: "NginX injector",
     });
 });
 
@@ -154,19 +153,223 @@ app.get("/", (req, res) => {
 });
 
 
-app.listen(portNumber, "localhost", () => {
-    console.log("Listening for requests");
+//----------PARTE NUOVA----------
+
+// Configurazione del tuo database
+const connection = mysql.createConnection({
+    user: 'root', host: 'localhost', database: dbname, password: 'omekas_prin_2022', port: 3306, // Porta di default di PostgreSQL
 });
+
+// Connessione al database e ottenimento della mappa dei luoghi
+connection.connect(async (err) => {
+    if (err) {
+        console.error('Errore durante la connessione al database:', err);
+        return;
+    }
+    console.log('Connesso al database MariaDB');
+
+    try {
+        // Ottieni la mappa dei luoghi prima di avviare il server
+        const initialMap = await getLocusRelationships();
+        console.log('Mappa dei luoghi iniziale:', initialMap);
+
+        // Avvia il server Express dopo aver ottenuto la mappa
+        app.listen(portNumber, "localhost", () => {
+            console.log("Listening for requests");
+        });
+
+        // Aggiornamento della mappa dei luoghi ogni tot millisecondi (ad esempio ogni 24 ore)
+        //const intervalInMilliseconds = 24 * 60 * 60 * 1000; // 24 ore
+        //setInterval(updateRecursiveMap, intervalInMilliseconds);
+    } catch (error) {
+        console.error('Errore durante l\'ottenimento della mappa dei luoghi:', error);
+    }
+});
+
+
+// Funzione per ottenere la mappa dei luoghi ricorsivamente
+function getLocusRelationships() {
+    return new Promise((resolve, reject) => {
+
+
+        const queries = [`START TRANSACTION`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+            SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
+            FROM value v
+             JOIN property p ON v.property_id = p.id;`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS locus AS
+            SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="LocusCatalogueRecord";
+            `,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS locus_relationships_free_type AS
+            WITH RECURSIVE RelationsCTE AS (SELECT t1.resource_id,
+                                                   t1.property_id,
+                                                   t1.local_name,
+                                                   t1.value_resource_id,
+                                                   t1.value,
+                                                   t2.resource_id                           AS t2_resource_id,
+                                                   t2.property_id                           AS t2_property_id,
+                                                   t2.local_name                            AS t2_local_name,
+                                                   t2.value_resource_id                     AS t2_value_resource_id,
+                                                   t2.value                                 AS t2_value
+                                            FROM tabella_unica t1
+                                                     JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
+                                            WHERE t2.value_resource_id IN (SELECT object_id FROM locus)
+                                              and t1.local_name = "hasRelationshipsWithLociData"
+                                              and t2.local_name IN ('locusLocatedIn', 'locusIsPartOf')
+            
+                                            UNION ALL
+            
+                                            SELECT t1.resource_id,
+                                                   t1.property_id,
+                                                   t1.local_name,
+                                                   t1.value_resource_id,
+                                                   t1.value,
+                                                   t2.resource_id                           AS t2_resource_id,
+                                                   t2.property_id                           AS t2_property_id,
+                                                   t2.local_name                            AS t2_local_name,
+                                                   t2.value_resource_id                     AS t2_value_resource_id,
+                                                   t2.value                                 AS t2_value
+            
+                                            FROM tabella_unica t1
+                                                     JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
+                                                     JOIN RelationsCTE r ON r.resource_id = t2.value_resource_id
+            
+                                            WHERE t1.local_name = "hasRelationshipsWithLociData"
+                                              and t2.local_name IN ('locusLocatedIn', 'locusIsPartOf'))
+            SELECT *
+            FROM RelationsCTE;`,
+
+            `SELECT resource_id, t2_value_resource_id FROM locus_relationships_free_type;`,
+
+            `DROP TEMPORARY TABLE locus;`,
+
+            `DROP TEMPORARY TABLE locus_relationships_free_type;`,
+
+            `DROP TEMPORARY TABLE tabella_unica;`,
+
+            `COMMIT;`, // Aggiungi altre query qui
+        ];
+
+        var results = []; // Array per salvare i risultati della terza query
+
+        function executeBatchQueries(queries, index = 0) {
+            if (index < queries.length) {
+                const query = queries[index];
+                connection.query(query, (error, queryResults) => {
+                    if (error) {
+                        connection.rollback(() => {
+                            console.error('Errore nell\'esecuzione della query:', error);
+                            connection.end();
+                        });
+                    } else {
+                        console.log('Query eseguita con successo:', query);
+                        if (index === 4) { // Verifica se questa è la terza query (l'indice 2)
+                            console.log('Risultati della terza query:', queryResults);
+
+                            let mappedArray = queryResults.map(item => [item.resource_id, item.t2_value_resource_id]);
+                            console.log(mappedArray);
+
+
+                            var dictionary = getDictionary(mappedArray);
+
+                            console.log(dictionary);
+
+                        }
+                    }
+                    executeBatchQueries(queries, index + 1);
+                });
+            } else {
+                // Chiudi la connessione quando tutte le query sono state eseguite
+                connection.end();
+                // Restituisci i risultati della terza query al frontend
+                console.log('Risultati finali da restituire al frontend:', results);
+
+                /*
+                res.writeHead(200, {"Content-Type": "application/json"});
+                res.end(
+                    JSON.stringify(results)
+                );*/
+
+            }
+        }
+
+        executeBatchQueries(queries);
+
+        /*
+        const query = 'SELECT id, GROUP_CONCAT(luogo_correlato_id) AS correlati FROM luoghi GROUP BY id';
+        connection.query(query, (err, rows) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            const resultMap = new Map();
+            rows.forEach(row => {
+                const placeId = row.id;
+                const relatedPlaces = row.correlati.split(',').map(Number);
+                resultMap.set(placeId, relatedPlaces);
+            });
+
+            resolve(resultMap);
+        });*/
+    });
+}
+
+
+function getDictionary(data) {
+    let result = {};
+
+// Costruzione del dizionario
+    data.forEach(([place, part_of]) => {
+        if (!result[part_of]) {
+            result[part_of] = [];
+        }
+        if (!result[place]) {
+            result[place] = [];
+        }
+
+        result[part_of].push(place);
+    });
+
+    // Aggiunta degli elementi correlati
+    Object.keys(result).forEach(place => {
+        result[place] = [...new Set(getRelatedPlaces(result, place).filter(p => p !== parseInt(place)))];
+    });
+
+    console.log("DATA");
+    console.log(data);
+
+// Aggiunta delle chiavi mancanti con liste vuote
+    const allKeys = data.flat().filter((value, index, self) => self.indexOf(value) === index);
+    allKeys.forEach(key => {
+        if (!result[key]) {
+            result[key] = [];
+        }
+    });
+}
+
+
+// Funzione per ottenere gli elementi correlati
+function getRelatedPlaces(result, place) {
+    let related = result[place] || [];
+    related.forEach(p => {
+        related = [...new Set([...related, ...getRelatedPlaces(p)])];
+    });
+    return related;
+}
+
+
+//---------------------
 
 function getResourceFromID(id, res) {
     console.log("ID DA TROVARE");
     console.log(id);
 
     var con = mysql.createConnection({
-        host: "localhost",
-        user: "root",
-        password: "omekas_prin_2022",
-        database: dbname
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
     });
 
 
@@ -210,93 +413,86 @@ function getResourceFromID(id, res) {
     //TODO: mettere blocco try-catch
 
     let prom = new Promise((resolve, reject) => {
-        con.query(
-            query,
-            (err, rows) => {
-                if (err) {
-                    return reject(err);
-                } else {
-                    let result = Object.values(JSON.parse(JSON.stringify(rows)));
+        con.query(query, (err, rows) => {
+            if (err) {
+                return reject(err);
+            } else {
+                let result = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                    var objectReversed = result.reverse();
+                var objectReversed = result.reverse();
 
-                    var ids = objectReversed.map(item => item["resource_id"]);
+                var ids = objectReversed.map(item => item["resource_id"]);
 
-                    const setIDs = [...new Set(ids)];
+                const setIDs = [...new Set(ids)];
 
-                    let object = new Map();
+                let object = new Map();
 
-                    setIDs.forEach(id => {
-                        var objWithCurrentID = objectReversed.filter(obj => obj["resource_id"] === id);
-                        object.set(id, objWithCurrentID);
-                    });
+                setIDs.forEach(id => {
+                    var objWithCurrentID = objectReversed.filter(obj => obj["resource_id"] === id);
+                    object.set(id, objWithCurrentID);
+                });
 
-                    var arr = {};
+                var arr = {};
 
-                    object.forEach((value, key) => {
-                        arr[key] = {};
-                        value.forEach(property => {
+                object.forEach((value, key) => {
+                    arr[key] = {};
+                    value.forEach(property => {
 
-                            var propertyObject = {};
-                            var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+                        var propertyObject = {};
+                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
 
-                            propertyObject[propertyName] = property;
+                        propertyObject[propertyName] = property;
 
-                            if (arr[key][propertyName] === undefined) {
-                                arr[key][propertyName] = [property];
-                            } else {
-                                arr[key][propertyName].push(property);
-                            }
-                        });
-
-                        object.set(key, arr[key]);
-                    });
-
-                    object.forEach((value, key) => {
-                        for (let k in value) {
-                            value[k].forEach(prop => {
-                                if (prop.value_resource_id !== null) {
-                                    if (prop.value === undefined || prop.value === null) {
-                                        prop.value = [];
-                                        prop.value.push(object.get(prop.value_resource_id));
-                                    } else {
-                                        prop.value.push(object.get(prop.value_resource_id));
-                                    }
-                                }
-                            });
+                        if (arr[key][propertyName] === undefined) {
+                            arr[key][propertyName] = [property];
+                        } else {
+                            arr[key][propertyName].push(property);
                         }
                     });
 
-                    var objectListFinal = object.get(id);
+                    object.set(key, arr[key]);
+                });
+
+                object.forEach((value, key) => {
+                    for (let k in value) {
+                        value[k].forEach(prop => {
+                            if (prop.value_resource_id !== null) {
+                                if (prop.value === undefined || prop.value === null) {
+                                    prop.value = [];
+                                    prop.value.push(object.get(prop.value_resource_id));
+                                } else {
+                                    prop.value.push(object.get(prop.value_resource_id));
+                                }
+                            }
+                        });
+                    }
+                });
+
+                var objectListFinal = object.get(id);
 
 
-                    resolve({objectListFinal, res});
-                }
-            });
+                resolve({objectListFinal, res});
+            }
+        });
     });
 
-    prom.then(
-        function ({objectListFinal, res}) {
-            console.log("HO OTTWNUTO OBJETCT RESOLVE");
-            console.log(objectListFinal);
+    prom.then(function ({objectListFinal, res}) {
+        console.log("HO OTTWNUTO OBJETCT RESOLVE");
+        console.log(objectListFinal);
 
-            if (objectListFinal === undefined) {
-                objectListFinal = null;
-            }
+        if (objectListFinal === undefined) {
+            objectListFinal = null;
+        }
 
-            res.writeHead(200, {"Content-Type": "application/json"});
-            res.end(
-                JSON.stringify(objectListFinal)
-            );
+        res.writeHead(200, {"Content-Type": "application/json"});
+        res.end(JSON.stringify(objectListFinal));
 
-            con.end();
-        });
+        con.end();
+    });
 
     prom.catch(function (err) {
         res.writeHead(200, {"Content-Type": "text"});
-        res.end(
-            "Si è verificato un errore nella richiesta"
-        );
+        res.end("Si è verificato un errore nella richiesta");
 
         con.end();
     });
@@ -304,10 +500,7 @@ function getResourceFromID(id, res) {
 
 function getAllFilmsDB(res) {
     var con = mysql.createConnection({
-        host: "localhost",
-        user: "root",
-        password: "omekas_prin_2022",
-        database: dbname
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
     });
 
     return getResourcesFromClassName("FilmCatalogueRecord", con, res);
@@ -315,10 +508,7 @@ function getAllFilmsDB(res) {
 
 function getAllLocusDB(res) {
     var con = mysql.createConnection({
-        host: "localhost",
-        user: "root",
-        password: "omekas_prin_2022",
-        database: dbname
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
     });
 
     return getResourcesFromClassName("LocusCatalogueRecord", con, res);
@@ -330,33 +520,30 @@ function getResourcesFromClassName(className, con, res) {
     var query = `SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="${className}"`;
 
     let filmsList = new Promise((resolve, reject) => {
-        con.query(
-            query,
-            (err, rows) => {
-                // console.log(rows);
-                if (err) {
-                    return reject(err);
-                } else {
-                    let list = Object.values(JSON.parse(JSON.stringify(rows)));
+        con.query(query, (err, rows) => {
+            // console.log(rows);
+            if (err) {
+                return reject(err);
+            } else {
+                let list = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                    resolve({list, res});
-                }
-            });
+                resolve({list, res});
+            }
+        });
     });
 
     //chiedo tutti i dati dei film
-    filmsList.then(
-        function ({list, res}) {
-            console.log("RES NEL THEN");
+    filmsList.then(function ({list, res}) {
+        console.log("RES NEL THEN");
 
-            list = list.map(film => film.object_id);
-            console.log(list);
+        list = list.map(film => film.object_id);
+        console.log(list);
 
-            // list = list.slice(0, 2);
+        // list = list.slice(0, 2);
 
-            if (list.length > 0) {
+        if (list.length > 0) {
 
-                var query = `
+            var query = `
     WITH RECURSIVE test as ( 
         SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
         FROM value as v1 
@@ -396,20 +583,18 @@ function getResourcesFromClassName(className, con, res) {
     left join media as m on test.resource_id = m.item_id;
           `;
 
-                console.log("QUERY");
-                console.log(query);
+            console.log("QUERY");
+            console.log(query);
 
-                makeInnerQuery(con, res, query, list);
-            } else {
+            makeInnerQuery(con, res, query, list);
+        } else {
 
-                res.send(
-                    []
-                );
+            res.send([]);
 
-                con.end();
-            }
+            con.end();
+        }
 
-        });
+    });
 
 
 };
@@ -417,10 +602,7 @@ function getResourcesFromClassName(className, con, res) {
 
 function getSchedeAVofFilm(res, req) {
     var con = mysql.createConnection({
-        host: "localhost",
-        user: "root",
-        password: "omekas_prin_2022",
-        database: dbname
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
     });
 
     console.log("REQ FILM ID");
@@ -431,33 +613,30 @@ function getSchedeAVofFilm(res, req) {
         var query = `SELECT resource_id FROM value WHERE value_resource_id=${req.body.film_id}`;
 
         let idsSchedeAVofFilm = new Promise((resolve, reject) => {
-            con.query(
-                query,
-                (err, rows) => {
-                    // console.log(rows);
-                    if (err) {
-                        return reject(err);
-                    } else {
-                        let list = Object.values(JSON.parse(JSON.stringify(rows)));
+            con.query(query, (err, rows) => {
+                // console.log(rows);
+                if (err) {
+                    return reject(err);
+                } else {
+                    let list = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                        resolve({list, res});
-                    }
-                });
+                    resolve({list, res});
+                }
+            });
         });
 
         //chiedo tutti i dati dei film
-        idsSchedeAVofFilm.then(
-            function ({list, res}) {
-                console.log("RES NEL THEN");
+        idsSchedeAVofFilm.then(function ({list, res}) {
+            console.log("RES NEL THEN");
 
-                list = list.map(film => film.resource_id);
-                console.log(list);
+            list = list.map(film => film.resource_id);
+            console.log(list);
 
-                // list = list.slice(0, 2);
+            // list = list.slice(0, 2);
 
-                if (list.length > 0) {
+            if (list.length > 0) {
 
-                    var query = `
+                var query = `
     WITH RECURSIVE test as ( 
         SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
         FROM value as v1 
@@ -497,168 +676,164 @@ function getSchedeAVofFilm(res, req) {
     left join media as m on test.resource_id = m.item_id;
           `;
 
-                    //console.log("QUERY");
-                    //console.log(query);
+                //console.log("QUERY");
+                //console.log(query);
 
-                    makeInnerQuery(con, res, query, list);
+                makeInnerQuery(con, res, query, list);
 
-                    /*
-                    let prom = new Promise((resolve, reject) => {
-                        con.query(
-                            query,
-                            (err, rows) => {
-                                // console.log(rows);
-                                if (err) {
-                                    return reject(err);
-                                } else {
-                                    let result = Object.values(JSON.parse(JSON.stringify(rows)));
+                /*
+                let prom = new Promise((resolve, reject) => {
+                    con.query(
+                        query,
+                        (err, rows) => {
+                            // console.log(rows);
+                            if (err) {
+                                return reject(err);
+                            } else {
+                                let result = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                                    object = result.reverse();
-                                    var object = object.reduce(function (r, a) {
-                                        r[a.resource_id] = r[a.resource_id] || [];
-                                        r[a.resource_id].push(a);
-                                        return r;
-                                    }, Object.create(null));
+                                object = result.reverse();
+                                var object = object.reduce(function (r, a) {
+                                    r[a.resource_id] = r[a.resource_id] || [];
+                                    r[a.resource_id].push(a);
+                                    return r;
+                                }, Object.create(null));
 
-                                    var arr = {};
+                                var arr = {};
 
-                                    for (let key in object) {
-                                        arr[key] = {};
-                                        object[key].forEach(property => {
+                                for (let key in object) {
+                                    arr[key] = {};
+                                    object[key].forEach(property => {
 
-                                            var propertyObject = {};
-                                            var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+                                        var propertyObject = {};
+                                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
 
-                                            propertyObject[propertyName] = property;
+                                        propertyObject[propertyName] = property;
 
-                                            if (arr[key][propertyName] === undefined) {
-                                                arr[key][propertyName] = [property];
-                                            } else {
-                                                arr[key][propertyName].push(property);
-                                            }
-                                            // arr[key][propertyName] = property;
-                                        });
-                                    }
+                                        if (arr[key][propertyName] === undefined) {
+                                            arr[key][propertyName] = [property];
+                                        } else {
+                                            arr[key][propertyName].push(property);
+                                        }
+                                        // arr[key][propertyName] = property;
+                                    });
+                                }
 
-                                    for (let key in arr) {
-                                        //console.log("KEY: " + key);
-                                        //console.log(arr[key]);
+                                for (let key in arr) {
+                                    //console.log("KEY: " + key);
+                                    //console.log(arr[key]);
 
-                                        for (let internalKey in arr[key]) {
-                                            var property = arr[key][internalKey];
-                                            //console.log("SONO QUA");
-                                            //console.log(property);
+                                    for (let internalKey in arr[key]) {
+                                        var property = arr[key][internalKey];
+                                        //console.log("SONO QUA");
+                                        //console.log(property);
 
-                                            property.forEach(prop => {
-                                                if (prop.value_resource_id !== null) {
-                                                    //la property collega una risorsa
+                                        property.forEach(prop => {
+                                            if (prop.value_resource_id !== null) {
+                                                //la property collega una risorsa
 
-                                                    //console.log("\n\n\n\nORA PROP VALUE E'");
-                                                    //console.log(prop.value);
+                                                //console.log("\n\n\n\nORA PROP VALUE E'");
+                                                //console.log(prop.value);
 
-                                                    if (prop.value === undefined || prop.value === null) {
-                                                        prop.value = [];
-                                                        //console.log("\nDEVO METTERE UN OGGETTO");
+                                                if (prop.value === undefined || prop.value === null) {
+                                                    prop.value = [];
+                                                    //console.log("\nDEVO METTERE UN OGGETTO");
 
-                                                        //console.log("\n\n STAMPO")
-                                                        //console.log(arr[prop.value_resource_id]);
-                                                        prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
-                                                    } else {
-                                                        //console.log("\nDEVO METTERE UN OGGETTO");
-                                                        //console.log("\n\n STAMPO")
-                                                        //console.log(arr[prop.value_resource_id]);
-                                                        prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
-                                                    }
+                                                    //console.log("\n\n STAMPO")
+                                                    //console.log(arr[prop.value_resource_id]);
+                                                    prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
+                                                } else {
+                                                    //console.log("\nDEVO METTERE UN OGGETTO");
+                                                    //console.log("\n\n STAMPO")
+                                                    //console.log(arr[prop.value_resource_id]);
+                                                    prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
                                                 }
-                                            });
-
-                                        }
-                                    }
-                                    ;
-
-                                    finalObject = arr;
-
-                                    var objectList = [];
-
-                                    for (let key in object) {
-                                        //console.log("KEY: " + key);
-                                        //console.log(list);
-                                        if (list.includes(parseInt(key))) {
-                                            objectList.push(object[key]);
-                                            // console.log(object[key]);
-                                            // var finalObject = {}
-
-                                            // object[key].forEach(property => {
-                                            //   var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
-                                            //   finalObject[propertyName] = property;
-                                            // });
-
-                                            // console.log("FINAL OBJECT");
-                                            // console.log(finalObject);
-
-                                            // objectList.push(finalObject);
-                                        }
-                                    }
-
-                                    var objectListFinal = [];
-
-                                    objectList.forEach(object => {
-                                        var finalObject = {};
-
-                                        object.forEach(property => {
-                                            var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
-
-                                            if (!finalObject[propertyName]) {
-                                                finalObject[propertyName] = [property];
-                                            } else {
-                                                finalObject[propertyName].push(property);
                                             }
-
                                         });
 
-                                        objectListFinal.push(finalObject);
+                                    }
+                                }
+                                ;
+
+                                finalObject = arr;
+
+                                var objectList = [];
+
+                                for (let key in object) {
+                                    //console.log("KEY: " + key);
+                                    //console.log(list);
+                                    if (list.includes(parseInt(key))) {
+                                        objectList.push(object[key]);
+                                        // console.log(object[key]);
+                                        // var finalObject = {}
+
+                                        // object[key].forEach(property => {
+                                        //   var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+                                        //   finalObject[propertyName] = property;
+                                        // });
+
+                                        // console.log("FINAL OBJECT");
+                                        // console.log(finalObject);
+
+                                        // objectList.push(finalObject);
+                                    }
+                                }
+
+                                var objectListFinal = [];
+
+                                objectList.forEach(object => {
+                                    var finalObject = {};
+
+                                    object.forEach(property => {
+                                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+
+                                        if (!finalObject[propertyName]) {
+                                            finalObject[propertyName] = [property];
+                                        } else {
+                                            finalObject[propertyName].push(property);
+                                        }
+
                                     });
 
-                                    resolve({objectListFinal, res});
-                                }
-                            });
-                    });
+                                    objectListFinal.push(finalObject);
+                                });
 
-                    prom.then(
-                        function ({objectListFinal, res}) {
-                            // console.log("RES NEL THEN");
-                            // console.log(res);
-                            console.log("HO OTTWNUTO OBJETCT RESOLVE");
-                            res.writeHead(200, {"Content-Type": "application/json"});
-                            res.end(
-                                JSON.stringify(objectListFinal)
-                            );
+                                resolve({objectListFinal, res});
+                            }
                         });
+                });
 
-                    prom.catch(function (err) {
-                        res.writeHead(200, {"Content-Type": "text"});
+                prom.then(
+                    function ({objectListFinal, res}) {
+                        // console.log("RES NEL THEN");
+                        // console.log(res);
+                        console.log("HO OTTWNUTO OBJETCT RESOLVE");
+                        res.writeHead(200, {"Content-Type": "application/json"});
                         res.end(
-                            "Si è verificato un errore nella richiesta"
+                            JSON.stringify(objectListFinal)
                         );
                     });
 
-*/
-                } else {
-                    res.writeHead(200, {"Content-Type": "application/json"});
+                prom.catch(function (err) {
+                    res.writeHead(200, {"Content-Type": "text"});
                     res.end(
-                        JSON.stringify([])
+                        "Si è verificato un errore nella richiesta"
                     );
+                });
 
-                    con.end();
-                }
+*/
+            } else {
+                res.writeHead(200, {"Content-Type": "application/json"});
+                res.end(JSON.stringify([]));
+
+                con.end();
+            }
 
 
-            });
+        });
     } else {
         res.writeHead(200, {"Content-Type": "text"});
-        res.end(
-            "An error has occurred"
-        );
+        res.end("An error has occurred");
 
         con.end();
     }
@@ -667,10 +842,7 @@ function getSchedeAVofFilm(res, req) {
 
 function getUnitaCatalograficheOfFilm(res, req) {
     var con = mysql.createConnection({
-        host: "localhost",
-        user: "root",
-        password: "omekas_prin_2022",
-        database: dbname
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
     });
 
     console.log("REQ FILM ID");
@@ -681,33 +853,30 @@ function getUnitaCatalograficheOfFilm(res, req) {
         var query = `SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id =${req.body.film_id}`;
 
         let idsSchedeAVofFilm = new Promise((resolve, reject) => {
-            con.query(
-                query,
-                (err, rows) => {
-                    // console.log(rows);
-                    if (err) {
-                        return reject(err);
-                    } else {
-                        let list = Object.values(JSON.parse(JSON.stringify(rows)));
+            con.query(query, (err, rows) => {
+                // console.log(rows);
+                if (err) {
+                    return reject(err);
+                } else {
+                    let list = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                        resolve({list, res});
-                    }
-                });
+                    resolve({list, res});
+                }
+            });
         });
 
         //chiedo tutti i dati dei film
-        idsSchedeAVofFilm.then(
-            function ({list, res}) {
-                console.log("RES NEL THEN");
+        idsSchedeAVofFilm.then(function ({list, res}) {
+            console.log("RES NEL THEN");
 
-                list = list.map(film => film.resource_id);
-                console.log(list);
+            list = list.map(film => film.resource_id);
+            console.log(list);
 
-                // list = list.slice(0, 2);
+            // list = list.slice(0, 2);
 
-                if (list.length > 0) {
+            if (list.length > 0) {
 
-                    var query = `
+                var query = `
     WITH RECURSIVE test as ( 
         SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri 
         FROM value as v1 
@@ -747,167 +916,163 @@ function getUnitaCatalograficheOfFilm(res, req) {
     left join media as m on test.resource_id = m.item_id;
           `;
 
-                    //console.log("QUERY");
-                    //console.log(query);
+                //console.log("QUERY");
+                //console.log(query);
 
-                    makeInnerQuery(con, res, query, list);
+                makeInnerQuery(con, res, query, list);
 
-                    /*
-                    let prom = new Promise((resolve, reject) => {
-                        con.query(
-                            query,
-                            (err, rows) => {
-                                // console.log(rows);
-                                if (err) {
-                                    return reject(err);
-                                } else {
-                                    let result = Object.values(JSON.parse(JSON.stringify(rows)));
+                /*
+                let prom = new Promise((resolve, reject) => {
+                    con.query(
+                        query,
+                        (err, rows) => {
+                            // console.log(rows);
+                            if (err) {
+                                return reject(err);
+                            } else {
+                                let result = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                                    object = result.reverse();
-                                    var object = object.reduce(function (r, a) {
-                                        r[a.resource_id] = r[a.resource_id] || [];
-                                        r[a.resource_id].push(a);
-                                        return r;
-                                    }, Object.create(null));
+                                object = result.reverse();
+                                var object = object.reduce(function (r, a) {
+                                    r[a.resource_id] = r[a.resource_id] || [];
+                                    r[a.resource_id].push(a);
+                                    return r;
+                                }, Object.create(null));
 
-                                    var arr = {};
+                                var arr = {};
 
-                                    for (let key in object) {
-                                        arr[key] = {};
-                                        object[key].forEach(property => {
+                                for (let key in object) {
+                                    arr[key] = {};
+                                    object[key].forEach(property => {
 
-                                            var propertyObject = {};
-                                            var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+                                        var propertyObject = {};
+                                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
 
-                                            propertyObject[propertyName] = property;
+                                        propertyObject[propertyName] = property;
 
-                                            if (arr[key][propertyName] === undefined) {
-                                                arr[key][propertyName] = [property];
-                                            } else {
-                                                arr[key][propertyName].push(property);
-                                            }
-                                            // arr[key][propertyName] = property;
-                                        });
-                                    }
+                                        if (arr[key][propertyName] === undefined) {
+                                            arr[key][propertyName] = [property];
+                                        } else {
+                                            arr[key][propertyName].push(property);
+                                        }
+                                        // arr[key][propertyName] = property;
+                                    });
+                                }
 
-                                    for (let key in arr) {
-                                        //console.log("KEY: " + key);
-                                        //console.log(arr[key]);
+                                for (let key in arr) {
+                                    //console.log("KEY: " + key);
+                                    //console.log(arr[key]);
 
-                                        for (let internalKey in arr[key]) {
-                                            var property = arr[key][internalKey];
-                                            //console.log("SONO QUA");
-                                            //console.log(property);
+                                    for (let internalKey in arr[key]) {
+                                        var property = arr[key][internalKey];
+                                        //console.log("SONO QUA");
+                                        //console.log(property);
 
-                                            property.forEach(prop => {
-                                                if (prop.value_resource_id !== null) {
-                                                    //la property collega una risorsa
+                                        property.forEach(prop => {
+                                            if (prop.value_resource_id !== null) {
+                                                //la property collega una risorsa
 
-                                                    //console.log("\n\n\n\nORA PROP VALUE E'");
-                                                    //console.log(prop.value);
+                                                //console.log("\n\n\n\nORA PROP VALUE E'");
+                                                //console.log(prop.value);
 
-                                                    if (prop.value === undefined || prop.value === null) {
-                                                        prop.value = [];
-                                                        //console.log("\nDEVO METTERE UN OGGETTO");
+                                                if (prop.value === undefined || prop.value === null) {
+                                                    prop.value = [];
+                                                    //console.log("\nDEVO METTERE UN OGGETTO");
 
-                                                        //console.log("\n\n STAMPO")
-                                                        //console.log(arr[prop.value_resource_id]);
-                                                        prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
-                                                    } else {
-                                                        //console.log("\nDEVO METTERE UN OGGETTO");
-                                                        //console.log("\n\n STAMPO")
-                                                        //console.log(arr[prop.value_resource_id]);
-                                                        prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
-                                                    }
+                                                    //console.log("\n\n STAMPO")
+                                                    //console.log(arr[prop.value_resource_id]);
+                                                    prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
+                                                } else {
+                                                    //console.log("\nDEVO METTERE UN OGGETTO");
+                                                    //console.log("\n\n STAMPO")
+                                                    //console.log(arr[prop.value_resource_id]);
+                                                    prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
                                                 }
-                                            });
-
-                                        }
-                                    }
-                                    ;
-
-                                    finalObject = arr;
-
-                                    var objectList = [];
-
-                                    for (let key in object) {
-                                        //console.log("KEY: " + key);
-                                        //console.log(list);
-                                        if (list.includes(parseInt(key))) {
-                                            objectList.push(object[key]);
-                                            // console.log(object[key]);
-                                            // var finalObject = {}
-
-                                            // object[key].forEach(property => {
-                                            //   var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
-                                            //   finalObject[propertyName] = property;
-                                            // });
-
-                                            // console.log("FINAL OBJECT");
-                                            // console.log(finalObject);
-
-                                            // objectList.push(finalObject);
-                                        }
-                                    }
-
-                                    var objectListFinal = [];
-
-                                    objectList.forEach(object => {
-                                        var finalObject = {};
-
-                                        object.forEach(property => {
-                                            var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
-
-                                            if (!finalObject[propertyName]) {
-                                                finalObject[propertyName] = [property];
-                                            } else {
-                                                finalObject[propertyName].push(property);
                                             }
-
                                         });
 
-                                        objectListFinal.push(finalObject);
+                                    }
+                                }
+                                ;
+
+                                finalObject = arr;
+
+                                var objectList = [];
+
+                                for (let key in object) {
+                                    //console.log("KEY: " + key);
+                                    //console.log(list);
+                                    if (list.includes(parseInt(key))) {
+                                        objectList.push(object[key]);
+                                        // console.log(object[key]);
+                                        // var finalObject = {}
+
+                                        // object[key].forEach(property => {
+                                        //   var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+                                        //   finalObject[propertyName] = property;
+                                        // });
+
+                                        // console.log("FINAL OBJECT");
+                                        // console.log(finalObject);
+
+                                        // objectList.push(finalObject);
+                                    }
+                                }
+
+                                var objectListFinal = [];
+
+                                objectList.forEach(object => {
+                                    var finalObject = {};
+
+                                    object.forEach(property => {
+                                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+
+                                        if (!finalObject[propertyName]) {
+                                            finalObject[propertyName] = [property];
+                                        } else {
+                                            finalObject[propertyName].push(property);
+                                        }
+
                                     });
 
-                                    resolve({objectListFinal, res});
-                                }
-                            });
-                    });
+                                    objectListFinal.push(finalObject);
+                                });
 
-                    prom.then(
-                        function ({objectListFinal, res}) {
-                            // console.log("RES NEL THEN");
-                            // console.log(res);
-                            console.log("HO OTTWNUTO OBJETCT RESOLVE");
-                            res.writeHead(200, {"Content-Type": "application/json"});
-                            res.end(
-                                JSON.stringify(objectListFinal)
-                            );
+                                resolve({objectListFinal, res});
+                            }
                         });
+                });
 
-                    prom.catch(function (err) {
-                        res.writeHead(200, {"Content-Type": "text"});
+                prom.then(
+                    function ({objectListFinal, res}) {
+                        // console.log("RES NEL THEN");
+                        // console.log(res);
+                        console.log("HO OTTWNUTO OBJETCT RESOLVE");
+                        res.writeHead(200, {"Content-Type": "application/json"});
                         res.end(
-                            "Si è verificato un errore nella richiesta"
+                            JSON.stringify(objectListFinal)
                         );
                     });
+
+                prom.catch(function (err) {
+                    res.writeHead(200, {"Content-Type": "text"});
+                    res.end(
+                        "Si è verificato un errore nella richiesta"
+                    );
+                });
 */
 
-                } else {
-                    res.writeHead(200, {"Content-Type": "application/json"});
-                    res.end(
-                        JSON.stringify([])
-                    );
+            } else {
+                res.writeHead(200, {"Content-Type": "application/json"});
+                res.end(JSON.stringify([]));
 
-                    con.end();
-                }
+                con.end();
+            }
 
-            });
+        });
     } else {
         res.writeHead(200, {"Content-Type": "text"});
-        res.end(
-            "An error has occurred"
-        );
+        res.end("An error has occurred");
 
         con.end();
     }
@@ -916,10 +1081,7 @@ function getUnitaCatalograficheOfFilm(res, req) {
 
 function getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req) {
     var con = mysql.createConnection({
-        host: "localhost",
-        user: "root",
-        password: "omekas_prin_2022",
-        database: dbname
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
     });
 
     console.log("REQ UC ID");
@@ -930,34 +1092,31 @@ function getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req) {
         var query = `SELECT distinct resource_id FROM value where value_resource_id =${req.body.uc_id}`;
 
         let idsSchedeAVofFilm = new Promise((resolve, reject) => {
-            con.query(
-                query,
-                (err, rows) => {
-                    // console.log(rows);
-                    if (err) {
-                        return reject(err);
-                    } else {
-                        let list = Object.values(JSON.parse(JSON.stringify(rows)));
+            con.query(query, (err, rows) => {
+                // console.log(rows);
+                if (err) {
+                    return reject(err);
+                } else {
+                    let list = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                        resolve({list, res});
-                    }
-                });
+                    resolve({list, res});
+                }
+            });
         });
 
         //chiedo tutti i dati dei film
-        idsSchedeAVofFilm.then(
-            function ({list, res}) {
-                console.log("RES NEL THEN");
+        idsSchedeAVofFilm.then(function ({list, res}) {
+            console.log("RES NEL THEN");
 
-                list = list.map(film => film.resource_id);
-                console.log("LISTA IDDDDDD");
-                console.log(list);
+            list = list.map(film => film.resource_id);
+            console.log("LISTA IDDDDDD");
+            console.log(list);
 
-                // list = list.slice(0, 2);
+            // list = list.slice(0, 2);
 
-                if (list.length > 0) {
+            if (list.length > 0) {
 
-                    var query = `
+                var query = `
     WITH RECURSIVE test as ( 
         SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
         FROM value as v1 
@@ -997,23 +1156,19 @@ function getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req) {
     left join media as m on test.resource_id = m.item_id;
           `;
 
-                    makeInnerQuery(con, res, query, list);
+                makeInnerQuery(con, res, query, list);
 
-                } else {
-                    res.writeHead(200, {"Content-Type": "application/json"});
-                    res.end(
-                        JSON.stringify([])
-                    );
+            } else {
+                res.writeHead(200, {"Content-Type": "application/json"});
+                res.end(JSON.stringify([]));
 
-                    con.end();
-                }
+                con.end();
+            }
 
-            });
+        });
     } else {
         res.writeHead(200, {"Content-Type": "text"});
-        res.end(
-            "An error has occurred"
-        );
+        res.end("An error has occurred");
 
         con.end();
     }
@@ -1022,10 +1177,7 @@ function getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req) {
 
 function getFilmFilters(res, req) {
     var con = mysql.createConnection({
-        host: "localhost",
-        user: "root",
-        password: "omekas_prin_2022",
-        database: dbname
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
     });
 
     //chiedo la lista di film
@@ -1034,85 +1186,77 @@ function getFilmFilters(res, req) {
     )`;
 
     let filters = new Promise((resolve, reject) => {
-        con.query(
-            query,
-            (err, rows) => {
-                // console.log(rows);
-                if (err) {
-                    return reject(err);
-                } else {
-                    let list = Object.values(JSON.parse(JSON.stringify(rows)));
+        con.query(query, (err, rows) => {
+            // console.log(rows);
+            if (err) {
+                return reject(err);
+            } else {
+                let list = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                    resolve({list, res});
-                }
-            });
+                resolve({list, res});
+            }
+        });
     });
 
     //chiedo tutti i dati dei film
-    filters.then(
-        function ({list, res}) {
-            console.log("RES NEL THEN");
+    filters.then(function ({list, res}) {
+        console.log("RES NEL THEN");
 
-            var genres = list.filter(obj => obj.local_name === "genre");
-            var titleType = list.filter(obj => obj.local_name === "titleType");
-            var titleLanguage = list.filter(obj => obj.local_name === "titleLanguage");
-            var productionCountry = list.filter(obj => obj.local_name === "productionCompanyCountry");
-            var productionName = list.filter(obj => obj.local_name === "productionCompanyName");
-            var dateTypology = list.filter(obj => obj.local_name === "dateTypology");
-            var locusIRITypes = list.filter(obj => obj.local_name === "hasIRIType");
-            var directorsNames = list.filter(obj => obj.local_name === "directorName");
+        var genres = list.filter(obj => obj.local_name === "genre");
+        var titleType = list.filter(obj => obj.local_name === "titleType");
+        var titleLanguage = list.filter(obj => obj.local_name === "titleLanguage");
+        var productionCountry = list.filter(obj => obj.local_name === "productionCompanyCountry");
+        var productionName = list.filter(obj => obj.local_name === "productionCompanyName");
+        var dateTypology = list.filter(obj => obj.local_name === "dateTypology");
+        var locusIRITypes = list.filter(obj => obj.local_name === "hasIRIType");
+        var directorsNames = list.filter(obj => obj.local_name === "directorName");
 
-            /*linguaggio e stile*/
-            var lighting = list.filter(obj => obj.local_name === "lighting");
-            var cameraAngle = list.filter(obj => obj.local_name === "cameraAngle");
-            var tilt = list.filter(obj => obj.local_name === "tilt");
-            var cameraShotType = list.filter(obj => obj.local_name === "cameraShotType");
-            var matte = list.filter(obj => obj.local_name === "hasMatte");
-            var pointOfView = list.filter(obj => obj.local_name === "cameraPlacement");
-            var cameraMotion = list.filter(obj => obj.local_name === "cameraMotion");
-            var colouring = list.filter(obj => obj.local_name === "colouring");
-
-
-            var result = {
-                genres: genres,
-                titleType: titleType,
-                titleLanguage: titleLanguage,
-                productionCountry: productionCountry,
-                productionName: productionName,
-                dateTypology: dateTypology,
-                locusIRITypes: locusIRITypes,
-                directorsNames: directorsNames,
-                lighting: lighting,
-                cameraAngle: cameraAngle,
-                tilt: tilt,
-                cameraShotType: cameraShotType,
-                matte: matte,
-                pointOfView: pointOfView,
-                cameraMotion: cameraMotion,
-                colouring: colouring
-            }
-            //list = list.map(film => film.resource_id);
-            //console.log("LISTA IDDDDDD");
-            //console.log(list);
-
-            res.writeHead(200, {"Content-Type": "application/json"});
-            res.end(
-                JSON.stringify(result)
-            );
-
-            con.end();
-        });
+        /*linguaggio e stile*/
+        var lighting = list.filter(obj => obj.local_name === "lighting");
+        var cameraAngle = list.filter(obj => obj.local_name === "cameraAngle");
+        var tilt = list.filter(obj => obj.local_name === "tilt");
+        var cameraShotType = list.filter(obj => obj.local_name === "cameraShotType");
+        var matte = list.filter(obj => obj.local_name === "hasMatte");
+        var pointOfView = list.filter(obj => obj.local_name === "cameraPlacement");
+        var cameraMotion = list.filter(obj => obj.local_name === "cameraMotion");
+        var colouring = list.filter(obj => obj.local_name === "colouring");
 
 
-    filters.catch(
-        function ({list, res}) {
-            res.writeHead(200, {"Content-Type": "text"});
-            res.end(
-                "An error has occurred"
-            );
+        var result = {
+            genres: genres,
+            titleType: titleType,
+            titleLanguage: titleLanguage,
+            productionCountry: productionCountry,
+            productionName: productionName,
+            dateTypology: dateTypology,
+            locusIRITypes: locusIRITypes,
+            directorsNames: directorsNames,
+            lighting: lighting,
+            cameraAngle: cameraAngle,
+            tilt: tilt,
+            cameraShotType: cameraShotType,
+            matte: matte,
+            pointOfView: pointOfView,
+            cameraMotion: cameraMotion,
+            colouring: colouring
+        }
+        //list = list.map(film => film.resource_id);
+        //console.log("LISTA IDDDDDD");
+        //console.log(list);
 
-            con.end();
-        });
+        res.writeHead(200, {"Content-Type": "application/json"});
+        res.end(JSON.stringify(result));
+
+        con.end();
+    });
+
+
+    filters.catch(function ({list, res}) {
+        res.writeHead(200, {"Content-Type": "text"});
+        res.end("An error has occurred");
+
+        con.end();
+    });
 
 }
 
@@ -1121,14 +1265,10 @@ function getLocusTypes(res, req) {
 
 
     var con = mysql.createConnection({
-        host: "localhost",
-        user: "root",
-        password: "omekas_prin_2022",
-        database: dbname
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
     });
 
-    const queries = [
-        `START TRANSACTION`,
+    const queries = [`START TRANSACTION`,
 
         `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
         SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
@@ -1162,8 +1302,7 @@ function getLocusTypes(res, req) {
 
         `DROP TEMPORARY TABLE tabella_unica;`,
 
-        `COMMIT;`,
-        // Aggiungi altre query qui
+        `COMMIT;`, // Aggiungi altre query qui
     ];
 
     var results = []; // Array per salvare i risultati della terza query
@@ -1192,7 +1331,15 @@ function getLocusTypes(res, req) {
                         var weather = queryResults.filter(obj => obj.local_name === "weatherConditionsInNarrative").map(obj => obj.value);
                         var partOfDay = queryResults.filter(obj => obj.local_name === "partOfDayInNarrative").map(obj => obj.value);
 
-                        results = {locusType: locusType, locusTypeName: locusTypeName, otherEntitiesType: otherEntitiesType, otherEntitiesTypeName: otherEntitiesTypeName, season: season, weather: weather, partOfDay: partOfDay};
+                        results = {
+                            locusType: locusType,
+                            locusTypeName: locusTypeName,
+                            otherEntitiesType: otherEntitiesType,
+                            otherEntitiesTypeName: otherEntitiesTypeName,
+                            season: season,
+                            weather: weather,
+                            partOfDay: partOfDay
+                        };
                         //results = queryResults;
                     }
                 }
@@ -1205,9 +1352,7 @@ function getLocusTypes(res, req) {
             console.log('Risultati finali da restituire al frontend:', results);
 
             res.writeHead(200, {"Content-Type": "application/json"});
-            res.end(
-                JSON.stringify(results)
-            );
+            res.end(JSON.stringify(results));
 
         }
     }
@@ -1230,10 +1375,7 @@ function getLocusTypes(res, req) {
  * */
 function getAllLocusRelatedToOne(res, req) {
     var con = mysql.createConnection({
-        host: "localhost",
-        user: "root",
-        password: "omekas_prin_2022",
-        database: dbname
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
     });
 
     console.log("LOCUS ID");
@@ -1258,44 +1400,37 @@ JOIN property p ON property_id = p.id join LocationHierarchy lh on lh1.resource_
 WHERE p.local_name <> "hasRelationshipsWithLociData"`;
 
         let idsSchedeAVofFilm = new Promise((resolve, reject) => {
-            con.query(
-                query,
-                (err, rows) => {
-                    // console.log(rows);
-                    if (err) {
-                        return reject(err);
-                    } else {
-                        let list = Object.values(JSON.parse(JSON.stringify(rows)));
+            con.query(query, (err, rows) => {
+                // console.log(rows);
+                if (err) {
+                    return reject(err);
+                } else {
+                    let list = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                        resolve({list, res});
-                    }
-                });
+                    resolve({list, res});
+                }
+            });
         });
 
         //chiedo tutti i dati dei film
-        idsSchedeAVofFilm.then(
-            function ({list, res}) {
-                console.log("RES NEL THEN");
+        idsSchedeAVofFilm.then(function ({list, res}) {
+            console.log("RES NEL THEN");
 
-                console.log("LISTA PRIMA");
-                console.log(list);
+            console.log("LISTA PRIMA");
+            console.log(list);
 
-                //list = list.map(film => film.resource_id);
-                //console.log("LISTA IDDDDDD");
-                //console.log(list);
+            //list = list.map(film => film.resource_id);
+            //console.log("LISTA IDDDDDD");
+            //console.log(list);
 
-                res.writeHead(200, {"Content-Type": "application/json"});
-                res.end(
-                    JSON.stringify(list)
-                );
+            res.writeHead(200, {"Content-Type": "application/json"});
+            res.end(JSON.stringify(list));
 
-                con.end();
-            });
+            con.end();
+        });
     } else {
         res.writeHead(200, {"Content-Type": "text"});
-        res.end(
-            "An error has occurred"
-        );
+        res.end("An error has occurred");
 
         con.end();
     }
@@ -1303,104 +1438,97 @@ WHERE p.local_name <> "hasRelationshipsWithLociData"`;
 
 function makeInnerQuery(con, res, query, list) {
     let prom = new Promise((resolve, reject) => {
-        con.query(
-            query,
-            (err, rows) => {
-                if (err) {
-                    return reject(err);
-                } else {
-                    let result = Object.values(JSON.parse(JSON.stringify(rows)));
+        con.query(query, (err, rows) => {
+            if (err) {
+                return reject(err);
+            } else {
+                let result = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                    var objectReversed = result.reverse();
+                var objectReversed = result.reverse();
 
-                    var ids = objectReversed.map(item => item["resource_id"]);
+                var ids = objectReversed.map(item => item["resource_id"]);
 
-                    const setIDs = [...new Set(ids)];
+                const setIDs = [...new Set(ids)];
 
-                    let object = new Map();
+                let object = new Map();
 
-                    setIDs.forEach(id => {
-                        var objWithCurrentID = objectReversed.filter(obj => obj["resource_id"] === id);
-                        object.set(id, objWithCurrentID);
-                    });
+                setIDs.forEach(id => {
+                    var objWithCurrentID = objectReversed.filter(obj => obj["resource_id"] === id);
+                    object.set(id, objWithCurrentID);
+                });
 
-                    var arr = {};
+                var arr = {};
 
-                    object.forEach((value, key) => {
-                        arr[key] = {};
-                        value.forEach(property => {
+                object.forEach((value, key) => {
+                    arr[key] = {};
+                    value.forEach(property => {
 
-                            var propertyObject = {};
-                            var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+                        var propertyObject = {};
+                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
 
-                            propertyObject[propertyName] = property;
+                        propertyObject[propertyName] = property;
 
-                            if (arr[key][propertyName] === undefined) {
-                                arr[key][propertyName] = [property];
-                            } else {
-                                arr[key][propertyName].push(property);
-                            }
-                        });
-
-                        object.set(key, arr[key]);
-                    });
-
-                    object.forEach((value, key) => {
-                        for (let k in value) {
-                            value[k].forEach(prop => {
-                                if (prop.value_resource_id !== null) {
-                                    if (prop.value === undefined || prop.value === null) {
-                                        prop.value = [];
-                                        prop.value.push(object.get(prop.value_resource_id));
-                                    } else {
-                                        prop.value.push(object.get(prop.value_resource_id));
-                                    }
-                                }
-                            });
+                        if (arr[key][propertyName] === undefined) {
+                            arr[key][propertyName] = [property];
+                        } else {
+                            arr[key][propertyName].push(property);
                         }
                     });
 
-                    var objectListFinal = [];
+                    object.set(key, arr[key]);
+                });
 
-                    list.forEach(id => {
-                        objectListFinal.push(object.get(id));
-                    })
+                object.forEach((value, key) => {
+                    for (let k in value) {
+                        value[k].forEach(prop => {
+                            if (prop.value_resource_id !== null) {
+                                if (prop.value === undefined || prop.value === null) {
+                                    prop.value = [];
+                                    prop.value.push(object.get(prop.value_resource_id));
+                                } else {
+                                    prop.value.push(object.get(prop.value_resource_id));
+                                }
+                            }
+                        });
+                    }
+                });
 
-                    resolve({objectListFinal, res});
-                }
-            });
+                var objectListFinal = [];
+
+                list.forEach(id => {
+                    objectListFinal.push(object.get(id));
+                })
+
+                resolve({objectListFinal, res});
+            }
+        });
     });
 
-    prom.then(
-        function ({objectListFinal, res}) {
-            console.log("HO OTTWNUTO OBJETCT RESOLVE");
+    prom.then(function ({objectListFinal, res}) {
+        console.log("HO OTTWNUTO OBJETCT RESOLVE");
 
-            /*res.writeHead(200, {"Content-Type": "application/json"});
-            res.end(
-                JSON.stringify(objectListFinal)
-            );*/
+        /*res.writeHead(200, {"Content-Type": "application/json"});
+        res.end(
+            JSON.stringify(objectListFinal)
+        );*/
 
-            //Ordino in ordine alfabetico
-            objectListFinal.sort((a, b) => {
-                const titleA = a['dcterms:title'][0]['value'].split(':')[1].trim();
-                const titleB = b['dcterms:title'][0]['value'].split(':')[1].trim();
+        //Ordino in ordine alfabetico
+        objectListFinal.sort((a, b) => {
+            const titleA = a['dcterms:title'][0]['value'].split(':')[1].trim();
+            const titleB = b['dcterms:title'][0]['value'].split(':')[1].trim();
 
-                // Usa localeCompare per ordinare in base al titolo (ignorando maiuscole/minuscole)
-                return titleA.localeCompare(titleB);
-            });
-
-            res.send(
-                objectListFinal
-            );
-
-            con.end();
+            // Usa localeCompare per ordinare in base al titolo (ignorando maiuscole/minuscole)
+            return titleA.localeCompare(titleB);
         });
+
+        res.send(objectListFinal);
+
+        con.end();
+    });
 
     prom.catch(function (err) {
         res.writeHead(200, {"Content-Type": "text"});
-        res.end(
-            "Si è verificato un errore nella richiesta"
-        );
+        res.end("Si è verificato un errore nella richiesta");
 
         con.end();
     });
@@ -1420,10 +1548,7 @@ function searchFilm(res, req) {
     } else {
         console.log("Almeno una chiave dell'oggetto non è vuota.");
         var con = mysql.createConnection({
-            host: "localhost",
-            user: "root",
-            password: "omekas_prin_2022",
-            database: dbname
+            host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
         });
 
         var query_parts = [false, false, false, false, false, false, false, false, false, false, false, false];
@@ -1547,34 +1672,31 @@ function searchFilm(res, req) {
         //TODO: implementare le ue query
 
         let idsFilms = new Promise((resolve, reject) => {
-            con.query(
-                query,
-                (err, rows) => {
-                    // console.log(rows);
-                    if (err) {
-                        return reject(err);
-                    } else {
-                        let list = Object.values(JSON.parse(JSON.stringify(rows)));
+            con.query(query, (err, rows) => {
+                // console.log(rows);
+                if (err) {
+                    return reject(err);
+                } else {
+                    let list = Object.values(JSON.parse(JSON.stringify(rows)));
 
-                        resolve({list, res});
-                    }
-                });
+                    resolve({list, res});
+                }
+            });
         });
 
         //chiedo tutti i dati dei film
-        idsFilms.then(
-            function ({list, res}) {
-                console.log("RES NEL THEN");
+        idsFilms.then(function ({list, res}) {
+            console.log("RES NEL THEN");
 
-                list = list.map(film => film.resource_id);
-                console.log("LISTA IDDDDDD");
-                console.log(list);
+            list = list.map(film => film.resource_id);
+            console.log("LISTA IDDDDDD");
+            console.log(list);
 
-                // list = list.slice(0, 2);
+            // list = list.slice(0, 2);
 
-                if (list.length > 0) {
+            if (list.length > 0) {
 
-                    var query = `
+                var query = `
     WITH RECURSIVE test as ( 
         SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
         FROM value as v1 
@@ -1614,18 +1736,16 @@ function searchFilm(res, req) {
     left join media as m on test.resource_id = m.item_id;
           `;
 
-                    makeInnerQuery(con, res, query, list);
+                makeInnerQuery(con, res, query, list);
 
-                } else {
-                    res.writeHead(200, {"Content-Type": "application/json"});
-                    res.end(
-                        JSON.stringify([])
-                    );
+            } else {
+                res.writeHead(200, {"Content-Type": "application/json"});
+                res.end(JSON.stringify([]));
 
-                    con.end();
-                }
+                con.end();
+            }
 
-            });
+        });
     }
 }
 
@@ -1640,21 +1760,15 @@ function getLocusOfFilmByFilmID(res, req) {
     if (!body.film_id) {
         console.log("ERROR: missing film id");
         res.writeHead(200, {"Content-Type": "application/json"});
-        res.end(
-            JSON.stringify([])
-        );
+        res.end(JSON.stringify([]));
     } else {
         console.log("Film ID present");
         var con = mysql.createConnection({
-            host: "localhost",
-            user: "root",
-            password: "omekas_prin_2022",
-            database: dbname
+            host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
         });
 
 
-        const queries = [
-            `START TRANSACTION`,
+        const queries = [`START TRANSACTION`,
 
             `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
             SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id
@@ -1736,8 +1850,7 @@ function getLocusOfFilmByFilmID(res, req) {
 
             `DROP TEMPORARY TABLE tabella_rappresentazioni_luogo_film;`,
 
-            `COMMIT;`,
-            // Aggiungi altre query qui
+            `COMMIT;`, // Aggiungi altre query qui
         ];
 
         //TODO: manca "linguaggio e stile come false"
@@ -1769,9 +1882,7 @@ function getLocusOfFilmByFilmID(res, req) {
                 console.log('Risultati finali da restituire al frontend:', results);
 
                 res.writeHead(200, {"Content-Type": "application/json"});
-                res.end(
-                    JSON.stringify(results)
-                );
+                res.end(JSON.stringify(results));
 
             }
         }
@@ -1793,21 +1904,15 @@ function getUCofFilmWithPresentPerson(res, req) {
     if (!body.film_id || !body.cast_member_name || !body.character_name) {
         console.log("ERROR: missing parameter");
         res.writeHead(200, {"Content-Type": "application/json"});
-        res.end(
-            JSON.stringify([])
-        );
+        res.end(JSON.stringify([]));
     } else {
         console.log("Parameters ok");
         var con = mysql.createConnection({
-            host: "localhost",
-            user: "root",
-            password: "omekas_prin_2022",
-            database: dbname
+            host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
         });
 
 
-        const queries = [
-            `START TRANSACTION`,
+        const queries = [`START TRANSACTION`,
 
             `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
                 SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
@@ -1842,12 +1947,9 @@ function getUCofFilmWithPresentPerson(res, req) {
 
             `DROP TEMPORARY TABLE uc_con_persona_presente;`,
 
-            `DROP TEMPORARY TABLE rappresentazioni_luogo_con_persona_presente;`,
-            `DROP TEMPORARY TABLE persona_presente;`,
-            `DROP TEMPORARY TABLE tabella_unica;`,
+            `DROP TEMPORARY TABLE rappresentazioni_luogo_con_persona_presente;`, `DROP TEMPORARY TABLE persona_presente;`, `DROP TEMPORARY TABLE tabella_unica;`,
 
-            `COMMIT;`,
-            // Aggiungi altre query qui
+            `COMMIT;`, // Aggiungi altre query qui
         ];
 
         //TODO: manca "linguaggio e stile come false"
@@ -1874,8 +1976,7 @@ function getUCofFilmWithPresentPerson(res, req) {
                                     existingObj[obj.local_name] = obj.value;
                                 } else {
                                     const newObj = {
-                                        resource_id: obj.resource_id,
-                                        [obj.local_name]: obj.value
+                                        resource_id: obj.resource_id, [obj.local_name]: obj.value
                                     };
                                     acc.push(newObj);
                                 }
@@ -1896,9 +1997,7 @@ function getUCofFilmWithPresentPerson(res, req) {
                 console.log('Risultati finali da restituire al frontend:', results);
 
                 //res.writeHead(200, {"Content-Type": "application/json"});
-                res.send(
-                    results
-                );
+                res.send(results);
 
             }
         }
@@ -1924,7 +2023,6 @@ function areAllFiltersEmpty(obj) {
 }
 
 
-
 function getRapprLuogoFilmFilters(res, req) {
     console.log("BODY");
     console.log(req.body);
@@ -1939,30 +2037,25 @@ function getRapprLuogoFilmFilters(res, req) {
     console.log(query);
 
     var con = mysql.createConnection({
-        host: "localhost",
-        user: "root",
-        password: "omekas_prin_2022",
-        database: dbname
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
     });
 
-    var queries = [
-        `START TRANSACTION`,
+    var queries = [`START TRANSACTION`,
 
         `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
         SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
         FROM value v
-         JOIN property p ON v.property_id = p.id;`,
-        // Aggiungi altre query qui
+         JOIN property p ON v.property_id = p.id;`, // Aggiungi altre query qui
     ];
 
     //Qua devo aggiungere le query intermedie
 
-    if(body.cameraPlacementLocusInRegionIDs.length > 0) {
+    if (body.cameraPlacementLocusInRegionIDs.length > 0) {
         queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
         queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera");
     }
 
-    if(body.narrativeLocusInRegionIDs.length > 0) {
+    if (body.narrativeLocusInRegionIDs.length > 0) {
         queries = locusFunctions.composeLocusRelationships(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative");
         queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative");
     }
@@ -2039,9 +2132,7 @@ function getRapprLuogoFilmFilters(res, req) {
             console.log('Risultati finali da restituire al frontend:', results);
 
             res.writeHead(200, {"Content-Type": "application/json"});
-            res.end(
-                JSON.stringify(results)
-            );
+            res.end(JSON.stringify(results));
 
         }
     }
