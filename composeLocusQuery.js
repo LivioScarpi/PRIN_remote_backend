@@ -44,8 +44,7 @@ function composeLocusQuery(objectFilters) {
     }
 
 
-
-    if(objectFilters.cameraPlacementLocusInRegionIDs.length > 0) {
+    if (objectFilters.cameraPlacementLocusInRegionIDs.length > 0) {
 
         if (query_parts[0] || query_parts[1]) {
             query += '\n INTERSECT \n'
@@ -85,7 +84,7 @@ function composeLocusQuery(objectFilters) {
         query_parts[2] = true;
     }
 
-    if(objectFilters.narrativeLocusInRegionIDs.length > 0) {
+    if (objectFilters.narrativeLocusInRegionIDs.length > 0) {
 
         if (query_parts[0] || query_parts[1] || query_parts[2]) {
             query += '\n INTERSECT \n'
@@ -174,9 +173,9 @@ function ottieniValoriConnessi(inputList, data) {
 function composeLocusRelationships(queries, ids, type, filter, locusRelationshipsDictionary) {
     console.log("SONO IN composeLocusRelationshipsFreeType");
 
-    console.log(queries);
-    console.log(ids);
-    console.log(type);
+    //console.log(queries);
+    //console.log(ids);
+    //console.log(type);
 
     const string_ids = ids.join(', ');
 
@@ -270,39 +269,21 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
     var q = `CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_list_free_type AS (
             SELECT distinct resource_id
             FROM (
-                  SELECT t1.resource_id,
-                         t1.property_id,
-                         t1.local_name,
-                         t1.value_resource_id,
-                         t1.value,
-                         t2.resource_id                           AS t2_resource_id,
-                         t2.property_id                           AS t2_property_id,
-                         t2.local_name                            AS t2_local_name,
-                         t2.value_resource_id                     AS t2_value_resource_id,
-                         t2.value                                 AS t2_value,
-                         caratterizzazione_base.resource_id       AS caratterizzazione_base_resource_id,
-                         caratterizzazione_base.property_id       AS caratterizzazione_base_property_id,
-                         caratterizzazione_base.local_name        AS caratterizzazione_base_local_name,
-                         caratterizzazione_base.value_resource_id AS caratterizzazione_base_value_resource_id,
-                         caratterizzazione_base.value             AS caratterizzazione_base_value,
-                         tipi.resource_id                         AS tipi_resource_id,
-                         tipi.property_id                         AS tipi_property_id,
-                         tipi.local_name                          AS tipi_local_name,
-                         tipi.value_resource_id                   AS tipi_value_resource_id,
-                         tipi.value                               AS tipi_value,
-                         tipolibero.resource_id                      AS tipolibero_resource_id,
-                         tipolibero.property_id                      AS tipolibero_property_id,
-                         tipolibero.local_name                       AS tipolibero_local_name,
-                         tipolibero.value_resource_id                AS tipolibero_value_resource_id,
-                         tipolibero.value                            AS tipolibero_value
+                  SELECT t1.resource_id
                   FROM tabella_unica t1
-                           JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
-                           JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
-                           JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
-                           JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
-                  WHERE t1.resource_id IN (${list_string_ids})
-                    and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
-                    and tipi.local_name = "hasTypeData") AS luoghi`;
+                           LEFT JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
+                           LEFT JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
+                           LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
+                           LEFT JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
+                  WHERE t1.resource_id IN (${list_string_ids}) `;
+
+    if (type !== "" && type !== null && type !== undefined) {
+        q += `and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
+                    and tipi.local_name = "hasTypeData"`
+    }
+
+
+    q += `) AS luoghi`;
 
     if (type !== "" && type !== null && type !== undefined) {
         q += ` WHERE tipolibero_value like "${type}"`
@@ -410,48 +391,23 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
     var q = `CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_list_type_name AS (
             SELECT distinct resource_id
             FROM (
-                  SELECT t1.resource_id,
-                         t1.property_id,
-                         t1.local_name,
-                         t1.value_resource_id,
-                         t1.value,
-                         t2.resource_id                           AS t2_resource_id,
-                         t2.property_id                           AS t2_property_id,
-                         t2.local_name                            AS t2_local_name,
-                         t2.value_resource_id                     AS t2_value_resource_id,
-                         t2.value                                 AS t2_value,
-                         caratterizzazione_base.resource_id       AS caratterizzazione_base_resource_id,
-                         caratterizzazione_base.property_id       AS caratterizzazione_base_property_id,
-                         caratterizzazione_base.local_name        AS caratterizzazione_base_local_name,
-                         caratterizzazione_base.value_resource_id AS caratterizzazione_base_value_resource_id,
-                         caratterizzazione_base.value             AS caratterizzazione_base_value,
-                         tipi.resource_id                         AS tipi_resource_id,
-                         tipi.property_id                         AS tipi_property_id,
-                         tipi.local_name                          AS tipi_local_name,
-                         tipi.value_resource_id                   AS tipi_value_resource_id,
-                         tipi.value                               AS tipi_value,
-                         tipoiri.resource_id                      AS tipoiri_resource_id,
-                         tipoiri.property_id                      AS tipoiri_property_id,
-                         tipoiri.local_name                       AS tipoiri_local_name,
-                         tipoiri.value_resource_id                AS tipoiri_value_resource_id,
-                         tipoiri.value                            AS tipoiri_value,
-                         nometipo.resource_id                     AS nometipo_resource_id,
-                         nometipo.property_id                     AS nometipo_property_id,
-                         nometipo.local_name                      AS nometipo_local_name,
-                         nometipo.value_resource_id               AS nometipo_value_resource_id,
-                         nometipo.value                           AS nometipo_value
+                  SELECT t1.resource_id
                   FROM tabella_unica t1
-                           JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
-                           JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
-                           JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
-                           JOIN tabella_unica tipoiri ON tipi.value_resource_id = tipoiri.resource_id
-                           JOIN tabella_unica nometipo ON tipoiri.value_resource_id = nometipo.resource_id
-                  WHERE t1.resource_id IN (${list_string_ids})
-                    and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
+                           LEFT JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
+                           LEFT JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
+                           LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
+                           LEFT JOIN tabella_unica tipoiri ON tipi.value_resource_id = tipoiri.resource_id
+                           LEFT JOIN tabella_unica nometipo ON tipoiri.value_resource_id = nometipo.resource_id
+                  WHERE t1.resource_id IN (${list_string_ids}) `;
+
+    if (type !== "" && type !== null && type !== undefined) {
+        q += `and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
                     and tipi.local_name = "hasTypeData"
                     and tipoiri.local_name = "hasIRITypeData"
-                    and nometipo.local_name = "typeName") AS luoghi
-            `;
+                    and nometipo.local_name = "typeName"`
+    }
+
+    q += `) AS luoghi`;
 
     if (type !== "" && type !== null && type !== undefined) {
         q += ` WHERE nometipo_value like "${type}"`
@@ -470,9 +426,9 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
 function composeLocusOverTime(queries, ids, type, filter, locusOverTimeRelationshipsDictionary) {
     console.log("SONO IN composeLocusOverTime");
 
-    console.log(queries);
-    console.log(ids);
-    console.log(type);
+    //console.log(queries);
+    //console.log(ids);
+    //console.log(type);
 
     const string_ids = ids.join(', ');
 

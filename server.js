@@ -190,7 +190,7 @@ connection.connect(async (err) => {
         });
 
         // Aggiornamento delle strutture dati ogni tot millisecondi (ad esempio ogni 24 ore)
-        const intervalInMilliseconds = 30000; //1 * 60 * 60 * 1000; // 24 ore
+        const intervalInMilliseconds = 7 * 60 * 60 * 1000; //1 * 60 * 60 * 1000; // 24 ore
         setInterval(updateData, intervalInMilliseconds);
     } catch (error) {
         console.error('Errore durante il recupero delle strutture dati:', error);
@@ -2216,7 +2216,7 @@ function getRapprLuogoFilmFilters(res, req) {
     var indexResults = queries.length - 2;
 
 
-    console.log(queries);
+    //console.log(queries);
 
     var results = []; // Array per salvare i risultati della terza query
 
@@ -2224,6 +2224,8 @@ function getRapprLuogoFilmFilters(res, req) {
         if (index < queries.length) {
             const query = queries[index];
             con.query(query, (error, queryResults) => {
+                console.log("\n\n\nORA ESEGUO LA SEGUENTE QUERY: \n\n\n");
+                console.log(query);
                 if (error) {
                     con.rollback(() => {
                         console.log("STO ESEGUENDO LA SEGUENTE QUERY: \n\n\n");
