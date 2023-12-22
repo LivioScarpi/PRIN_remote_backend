@@ -125,6 +125,10 @@ app.post("/server/search_films", express.json(), cacheMiddleware, (req, res) => 
     searchFilm(res, req);
 });
 
+app.post("/server/get_rappr_luogo", express.json(), cacheMiddleware, (req, res) => {
+    getRapprLuogo(res, req);
+});
+
 app.post("/server/get_locus_of_film", express.json(), cacheMiddleware, (req, res) => {
     getLocusOfFilmByFilmID(res, req);
 });
@@ -1654,8 +1658,18 @@ function makeInnerQuery(con, res, query, list) {
     });
 }
 
-function searchFilm(res, req) {
-    body = JSON.parse(JSON.stringify(req.body));
+function searchFilm(res, req, filters = null) {
+
+    console.log("\n\n\nSONO IN SEARCH FILMS");
+    console.log(filters);
+
+    var body;
+    if(filters !== null) {
+        body = filters;
+    } else {
+        body = JSON.parse(JSON.stringify(req.body));
+    }
+    //body = JSON.parse(JSON.stringify(req.body));
 
     console.log("OBJECT FILTERS");
     console.log(body);
@@ -2143,7 +2157,159 @@ function areAllFiltersEmpty(obj) {
 }
 
 
-function getRapprLuogoFilmFilters(res, req) {
+async function getRapprLuogoFilmFilters(res, req, filters = null) {
+    return new Promise((resolve, reject) => {
+        console.log("\n\n\nSONO IN RAPPR LUOGO");
+        console.log(filters);
+        var body;
+
+
+        if (filters !== null) {
+            body = filters;
+        } else {
+            body = JSON.parse(JSON.stringify(req.body));
+        }
+
+        console.log("OBJECT FILTERS");
+        console.log(body);
+
+        var query = locusFunctions.composeLocusQuery(body);
+
+        console.log("QUERY");
+        console.log(query);
+
+        var con = mysql.createConnection({
+            host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+        });
+
+        var queries = [`START TRANSACTION`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+        SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
+        FROM value v
+         JOIN property p ON v.property_id = p.id;`, // Aggiungi altre query qui
+        ];
+
+        //Qua devo aggiungere le query intermedie
+
+        if (body.cameraPlacementLocusInRegionIDs.length > 0) {
+            queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusRelationshipsDictionary);
+            queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusOverTimeRelationshipsDictionary);
+        }
+
+        if (body.narrativeLocusInRegionIDs.length > 0) {
+            queries = locusFunctions.composeLocusRelationships(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusRelationshipsDictionary);
+            queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusOverTimeRelationshipsDictionary);
+        }
+
+
+        //Aggiungere query di select
+        var q = locusFunctions.composeLocusQuery(body);
+
+        console.log("STAMPO Q!!!");
+        console.log(q);
+
+        queries.push(q);
+
+        /*
+
+        `DROP TEMPORARY TABLE IF EXISTS camera_locus_list_free_type;`,
+                    `DROP TEMPORARY TABLE IF EXISTS camera_locus_relationships_free_type;`,
+                    `DROP TEMPORARY TABLE IF EXISTS camera_locus_list_type_name;`,
+                    `DROP TEMPORARY TABLE IF EXISTS camera_locus_relationships_type_name;`,
+                    `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_list_free_type;`,
+                    `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_free_type;`,
+                    `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_list_type_name;`,
+                    `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_type_name;`,
+
+                    `DROP TEMPORARY TABLE IF EXISTS narrative_locus_list_free_type;`,
+                    `DROP TEMPORARY TABLE IF EXISTS narrative_locus_relationships_free_type;`,
+                    `DROP TEMPORARY TABLE IF EXISTS narrative_locus_list_type_name;`,
+                    `DROP TEMPORARY TABLE IF EXISTS narrative_locus_relationships_type_name;`,
+                    `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_list_free_type;`,
+                    `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_free_type;`,
+                    `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_list_type_name;`,
+                    `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_type_name;`,
+
+                    `DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
+         */
+        queries.push(`COMMIT;`);
+
+        var indexResults = queries.length - 2;
+
+
+        //console.log(queries);
+
+        var promise = new Promise((resolve, reject) => {
+
+            var results = []; // Array per salvare i risultati della terza query
+
+            function executeBatchQueries(queries, index = 0) {
+                if (index < queries.length) {
+                    const query = queries[index];
+                    con.query(query, (error, queryResults) => {
+                        console.log("\n\n\nORA ESEGUO LA SEGUENTE QUERY: \n\n\n");
+                        console.log(query);
+                        if (error) {
+                            con.rollback(() => {
+                                console.log("STO ESEGUENDO LA SEGUENTE QUERY: \n\n\n");
+                                console.log(query);
+
+                                console.log("\n\n\n");
+                                console.error('Errore nell\'esecuzione della query:', error);
+                                con.end();
+                            });
+                        } else {
+                            console.log('Query eseguita con successo:', query);
+                            if (index === indexResults) { // Verifica se questa è la terza query (l'indice 2)
+                                console.log('Risultati della terza query:', queryResults);
+
+
+                                //results = {locusType: locusType, locusTypeName: locusTypeName, otherEntitiesType: otherEntitiesType, otherEntitiesTypeName: otherEntitiesTypeName, season: season, weather: weather, partOfDay: partOfDay};
+                                results = queryResults;
+                            }
+                        }
+                        executeBatchQueries(queries, index + 1);
+                    });
+                } else {
+                    // Chiudi la connessione quando tutte le query sono state eseguite
+                    con.end();
+                    // Restituisci i risultati della terza query al frontend
+                    console.log('Risultati finali da restituire al frontend:', results);
+
+                    if (filters === null) {
+                        res.writeHead(200, {"Content-Type": "application/json"});
+                        res.end(JSON.stringify(results));
+                    } else {
+                        console.log("Torno i risultati alla promessa");
+                        resolve(results);
+                    }
+
+
+                }
+            }
+
+            executeBatchQueries(queries);
+        });
+
+        promise.then((results) => {
+            // Gestisci i risultati ottenuti
+            console.log('Risultati ottenuti:', results);
+            // Esegui qui le operazioni desiderate con i risultati
+
+            resolve(results);
+        })
+            .catch((error) => {
+                // Gestisci gli errori se si verificano durante l'esecuzione di prova()
+                console.error('Errore durante l\'esecuzione di prova:', error);
+            });
+
+    });
+}
+
+
+
+async function getRapprLuogo(res, req) {
     console.log("BODY");
     console.log(req.body);
     var body = JSON.parse(JSON.stringify(req.body));
@@ -2151,113 +2317,14 @@ function getRapprLuogoFilmFilters(res, req) {
     console.log("OBJECT FILTERS");
     console.log(body);
 
-    var query = locusFunctions.composeLocusQuery(body);
+    console.log("\n\nFILM FILTERS");
+    console.log(body.filmFilters);
 
-    console.log("QUERY");
-    console.log(query);
+    console.log("\n\nLOCUS FILTERS");
+    console.log(body.locusFilters);//searchFilm(res, req, body.filmFilters),
+    const [locusRelationships] = await Promise.all([getRapprLuogoFilmFilters(res, req, body.locusFilters)]);
 
-    var con = mysql.createConnection({
-        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
-    });
+    console.log("Strutture dati ottenute");
+    console.log(locusRelationships);
 
-    var queries = [`START TRANSACTION`,
-
-        `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
-        SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
-        FROM value v
-         JOIN property p ON v.property_id = p.id;`, // Aggiungi altre query qui
-    ];
-
-    //Qua devo aggiungere le query intermedie
-
-    if (body.cameraPlacementLocusInRegionIDs.length > 0) {
-        queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusRelationshipsDictionary);
-        queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusOverTimeRelationshipsDictionary);
-    }
-
-    if (body.narrativeLocusInRegionIDs.length > 0) {
-        queries = locusFunctions.composeLocusRelationships(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusRelationshipsDictionary);
-        queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusOverTimeRelationshipsDictionary);
-    }
-
-
-    //Aggiungere query di select
-    var q = locusFunctions.composeLocusQuery(body);
-
-    console.log("STAMPO Q!!!");
-    console.log(q);
-
-    queries.push(q);
-
-    /*
-
-    `DROP TEMPORARY TABLE IF EXISTS camera_locus_list_free_type;`,
-                `DROP TEMPORARY TABLE IF EXISTS camera_locus_relationships_free_type;`,
-                `DROP TEMPORARY TABLE IF EXISTS camera_locus_list_type_name;`,
-                `DROP TEMPORARY TABLE IF EXISTS camera_locus_relationships_type_name;`,
-                `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_list_free_type;`,
-                `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_free_type;`,
-                `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_list_type_name;`,
-                `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_type_name;`,
-
-                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_list_free_type;`,
-                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_relationships_free_type;`,
-                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_list_type_name;`,
-                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_relationships_type_name;`,
-                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_list_free_type;`,
-                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_free_type;`,
-                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_list_type_name;`,
-                `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_type_name;`,
-
-                `DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
-     */
-    queries.push(`COMMIT;`);
-
-    var indexResults = queries.length - 2;
-
-
-    //console.log(queries);
-
-    var results = []; // Array per salvare i risultati della terza query
-
-    function executeBatchQueries(queries, index = 0) {
-        if (index < queries.length) {
-            const query = queries[index];
-            con.query(query, (error, queryResults) => {
-                console.log("\n\n\nORA ESEGUO LA SEGUENTE QUERY: \n\n\n");
-                console.log(query);
-                if (error) {
-                    con.rollback(() => {
-                        console.log("STO ESEGUENDO LA SEGUENTE QUERY: \n\n\n");
-                        console.log(query);
-
-                        console.log("\n\n\n");
-                        console.error('Errore nell\'esecuzione della query:', error);
-                        con.end();
-                    });
-                } else {
-                    console.log('Query eseguita con successo:', query);
-                    if (index === indexResults) { // Verifica se questa è la terza query (l'indice 2)
-                        console.log('Risultati della terza query:', queryResults);
-
-
-                        //results = {locusType: locusType, locusTypeName: locusTypeName, otherEntitiesType: otherEntitiesType, otherEntitiesTypeName: otherEntitiesTypeName, season: season, weather: weather, partOfDay: partOfDay};
-                        results = queryResults;
-                    }
-                }
-                executeBatchQueries(queries, index + 1);
-            });
-        } else {
-            // Chiudi la connessione quando tutte le query sono state eseguite
-            con.end();
-            // Restituisci i risultati della terza query al frontend
-            console.log('Risultati finali da restituire al frontend:', results);
-
-            res.writeHead(200, {"Content-Type": "application/json"});
-            res.end(JSON.stringify(results));
-
-        }
-    }
-
-    executeBatchQueries(queries);
 }
