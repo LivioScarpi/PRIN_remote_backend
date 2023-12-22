@@ -1658,7 +1658,7 @@ function makeInnerQuery(con, res, query, list) {
     });
 }
 
-function searchFilm(res, req, filters = null) {
+async function searchFilm(res, req, filters = null) {
 
     console.log("\n\n\nSONO IN SEARCH FILMS");
     console.log(filters);
@@ -1677,7 +1677,8 @@ function searchFilm(res, req, filters = null) {
     if (areAllFiltersEmpty(body)) {
         console.log("Tutte le chiavi dell'oggetto sono vuote.");
 
-        //TODO: implementare la query di base che ottiene tutti i film;
+        //TODO: SISTEMARE QUESTA PARTE:
+        //se ho filters allora non devo tornare i film come oggetti, ma solo tutti gli id, quindi devo implementare una query che ritorni tutti gli id di film e chiamarla
         getAllFilmsDB(res);
     } else {
         console.log("Almeno una chiave dell'oggetto non è vuota.");
@@ -1819,7 +1820,7 @@ function searchFilm(res, req, filters = null) {
         });
 
         //chiedo tutti i dati dei film
-        idsFilms.then(function ({list, res}) {
+        idsFilms = idsFilms.then(function ({list, res}) {
             console.log("RES NEL THEN");
 
             list = list.map(film => film.resource_id);
@@ -1828,57 +1829,75 @@ function searchFilm(res, req, filters = null) {
 
             // list = list.slice(0, 2);
 
-            if (list.length > 0) {
+            if(filters === null) {
 
-                var query = `
-    WITH RECURSIVE test as ( 
-        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
-        FROM value as v1 
-        WHERE v1.resource_id=${list.join(" OR v1.resource_id=")
-                    }
-    UNION
-    (
-      SELECT
-        v2.resource_id,
-        v2.property_id,
-        v2.value_resource_id,
-        v2.value,
-        v2.uri
-      FROM
-        value as v2
-        INNER JOIN test ON test.value_resource_id = v2.resource_id
-    )
-  )
-  select
-    test.resource_id,
-    test.property_id,
-    test.value_resource_id,
-    test.value,
-    property.local_name as property_name,
-    property.label as property_label,
-    vocabulary.prefix as vocabulary_prefix,
-    r2.local_name,
-    r2.label,
-    m.storage_id as media_link,
-    test.uri as uri_link
-  from
-    test
-    join property on test.property_id = property.id
-    join vocabulary on property.vocabulary_id = vocabulary.id
-    join resource as r1 on test.resource_id = r1.id
-    join resource_class as r2 on r1.resource_class_id = r2.id
-    left join media as m on test.resource_id = m.item_id;
-          `;
+                if (list.length > 0) {
 
-                makeInnerQuery(con, res, query, list);
+                    var query = `
+                                WITH RECURSIVE test as ( 
+                                    SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
+                                    FROM value as v1 
+                                    WHERE v1.resource_id=${list.join(" OR v1.resource_id=")
+                                                }
+                                UNION
+                                (
+                                  SELECT
+                                    v2.resource_id,
+                                    v2.property_id,
+                                    v2.value_resource_id,
+                                    v2.value,
+                                    v2.uri
+                                  FROM
+                                    value as v2
+                                    INNER JOIN test ON test.value_resource_id = v2.resource_id
+                                )
+                              )
+                              select
+                                test.resource_id,
+                                test.property_id,
+                                test.value_resource_id,
+                                test.value,
+                                property.local_name as property_name,
+                                property.label as property_label,
+                                vocabulary.prefix as vocabulary_prefix,
+                                r2.local_name,
+                                r2.label,
+                                m.storage_id as media_link,
+                                test.uri as uri_link
+                              from
+                                test
+                                join property on test.property_id = property.id
+                                join vocabulary on property.vocabulary_id = vocabulary.id
+                                join resource as r1 on test.resource_id = r1.id
+                                join resource_class as r2 on r1.resource_class_id = r2.id
+                                left join media as m on test.resource_id = m.item_id;
+                                      `;
+
+                    makeInnerQuery(con, res, query, list);
+
+                } else {
+                    res.writeHead(200, {"Content-Type": "application/json"});
+                    res.end(JSON.stringify([]));
+
+                    con.end();
+                }
 
             } else {
-                res.writeHead(200, {"Content-Type": "application/json"});
-                res.end(JSON.stringify([]));
-
-                con.end();
+                console.log("Sono stao chiamato da 'get_rappr_luogo', ritorno la lista");
+                return list;
             }
 
+        });
+
+        return idsFilms.then(result => {
+            console.log("EIEIEI ECCOMI");
+            if (Array.isArray(result)) {
+                // Se il risultato è un array (ovvero la lista), restituiscilo
+                return result;
+            } else {
+                // Se il risultato non è un array, non c'è una lista da restituire
+                return [];
+            }
         });
     }
 }
@@ -2322,9 +2341,13 @@ async function getRapprLuogo(res, req) {
 
     console.log("\n\nLOCUS FILTERS");
     console.log(body.locusFilters);//searchFilm(res, req, body.filmFilters),
-    const [locusRelationships] = await Promise.all([getRapprLuogoFilmFilters(res, req, body.locusFilters)]);
+    const [rapprLuogoFilmFilters, rapprLuogoLocusFilters] = await Promise.all([searchFilm(res, req, body.filmFilters), getRapprLuogoFilmFilters(res, req, body.locusFilters)]);
 
     console.log("Strutture dati ottenute");
-    console.log(locusRelationships);
 
+    console.log("rapprLuogoFilmFilters");
+    console.log(rapprLuogoFilmFilters);
+
+    console.log("rapprLuogoLocusFilters");
+    console.log(rapprLuogoLocusFilters);
 }
