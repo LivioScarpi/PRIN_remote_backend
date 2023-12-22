@@ -622,6 +622,14 @@ function getResourceFromID(id, res) {
     });
 };
 
+function getAllFilmsIDsDB(res) {
+    var con = mysql.createConnection({
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+    });
+
+    return getResourcesIdsFromClassName("FilmCatalogueRecord", con, res);
+}
+
 function getAllFilmsDB(res) {
     var con = mysql.createConnection({
         host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
@@ -718,6 +726,40 @@ function getResourcesFromClassName(className, con, res) {
             con.end();
         }
 
+    });
+
+
+};
+
+function getResourcesIdsFromClassName(className, con, res) {
+
+    //chiedo la lista di film
+    var query = `SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="${className}"`;
+
+    let filmsList = new Promise((resolve, reject) => {
+        con.query(query, (err, rows) => {
+            // console.log(rows);
+            if (err) {
+                return reject(err);
+            } else {
+                let list = Object.values(JSON.parse(JSON.stringify(rows)));
+
+                resolve({list, res});
+            }
+        });
+    });
+
+    //chiedo tutti i dati dei film
+    return filmsList.then(function ({list, res}) {
+        console.log("RES NEL THEN");
+
+        list = list.map(film => film.object_id);
+        console.log(list);
+
+        // list = list.slice(0, 2);
+        con.end();
+
+        return list;
     });
 
 
@@ -1677,9 +1719,14 @@ async function searchFilm(res, req, filters = null) {
     if (areAllFiltersEmpty(body)) {
         console.log("Tutte le chiavi dell'oggetto sono vuote.");
 
-        //TODO: SISTEMARE QUESTA PARTE:
         //se ho filters allora non devo tornare i film come oggetti, ma solo tutti gli id, quindi devo implementare una query che ritorni tutti gli id di film e chiamarla
-        getAllFilmsDB(res);
+        if(filters === null){
+            console.log("CHIAMO getAllFilmsDB");
+            getAllFilmsDB(res);
+        } else {
+            console.log("CHIAMO getAllFilmsIDsDB");
+            return getAllFilmsIDsDB(res);
+        }
     } else {
         console.log("Almeno una chiave dell'oggetto non è vuota.");
         var con = mysql.createConnection({
