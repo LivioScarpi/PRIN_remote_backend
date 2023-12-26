@@ -2466,15 +2466,21 @@ async function getRapprLuogo(res, req) {
                                 console.log("DATA CONTESTO NARRATIVO:");
                                 console.log(date);
 
-                                const regexString = /\b(\d{1,4}\s?(?:a\.C\.|d\.C\.)*)(?=(?:\s|$))/gi;
+
+                                const regexString = /\b(\d{1,4}\s?(?:a\.C\.|d\.C\.)*)\s*(ca\.|)(?=(?:\s|$))/gi;
+                                const stringa = "1201 a.C. - 23/11/202 d.C. ca. - (Commento)";
 
                                 const matches = date.match(regexString);
 
                                 if (matches) {
                                     console.log(matches);
-                                    const anni = matches.filter(match => parseInt(match) >= 0 && parseInt(match) <= 9999);
+                                    const anni = matches.filter(match => {
+                                        const parsed = parseInt(match);
+                                        return !isNaN(parsed) && parsed >= 0 && parsed <= 9999;
+                                    });
                                     console.log("Anni:", anni);
 
+                                    // TODO: se l'anno ha un ca. bisogna calcolare un range più ampio
                                     if(anni.length > 1){
                                         var fromYearString = anni[0];
                                         var toYearString = anni[1];
@@ -2490,6 +2496,7 @@ async function getRapprLuogo(res, req) {
                                 } else {
                                     console.log("Nessun match trovato.");
                                 }
+
 
 
                             } else {
