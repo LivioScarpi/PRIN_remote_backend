@@ -140,7 +140,7 @@ app.post("/server/get_uc_with_present_person", express.json(), cacheMiddleware, 
 app.post("/server/get_resource_from_id", express.json(), cacheMiddleware, (req, res) => {
     try {
         const resource_id = req.body.resource_id;
-        getResourceFromID(resource_id, res);
+        getResourceFromID([resource_id], res);
     } catch (err) {
         console.log(err);
     }
@@ -500,7 +500,7 @@ function getResourceFromID(id, res) {
     var query = `WITH RECURSIVE test as ( 
         SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
         FROM value as v1 
-        WHERE v1.resource_id=${id}
+        WHERE v1.resource_id IN (${id.join(', ')})
     UNION
     (
       SELECT
@@ -535,14 +535,19 @@ function getResourceFromID(id, res) {
     left join media as m on test.resource_id = m.item_id;`;
 
     //TODO: mettere blocco try-catch
+    console.log("QUERY");
+    console.log(query);
 
     let prom = new Promise((resolve, reject) => {
         con.query(query, (err, rows) => {
             if (err) {
                 return reject(err);
             } else {
-                let result = Object.values(JSON.parse(JSON.stringify(rows)));
 
+
+                let result = Object.values(JSON.parse(JSON.stringify(rows)));
+                console.log("RESULTS");
+                console.log(result);
                 var objectReversed = result.reverse();
 
                 var ids = objectReversed.map(item => item["resource_id"]);
@@ -592,31 +597,50 @@ function getResourceFromID(id, res) {
                     }
                 });
 
-                var objectListFinal = object.get(id);
+                var objectListFinal = null;
 
+                if (id.length === 1) {
+                    objectListFinal = object.get(id[0]);
+                } else if (id.length > 1) {
+                    objectListFinal = [];
+                    id.forEach(id_number => {
+                        objectListFinal.push(object.get(id_number));
+                    });
+                }
 
                 resolve({objectListFinal, res});
             }
         });
     });
 
-    prom.then(function ({objectListFinal, res}) {
-        console.log("HO OTTWNUTO OBJETCT RESOLVE");
-        console.log(objectListFinal);
+    return prom.then(function ({objectListFinal, res}) {
+        //console.log("HO OTTWNUTO OBJETCT RESOLVE");
+        //console.log(objectListFinal);
 
         if (objectListFinal === undefined) {
             objectListFinal = null;
         }
 
-        res.writeHead(200, {"Content-Type": "application/json"});
-        res.end(JSON.stringify(objectListFinal));
+
+        if (res) {
+            res.writeHead(200, {"Content-Type": "application/json"});
+            res.end(JSON.stringify(objectListFinal));
+        } else {
+            return objectListFinal;
+        }
+
 
         con.end();
     });
 
-    prom.catch(function (err) {
-        res.writeHead(200, {"Content-Type": "text"});
-        res.end("Si è verificato un errore nella richiesta");
+    return prom.catch(function (err) {
+
+        if (res) {
+            res.writeHead(200, {"Content-Type": "text"});
+            res.end("Si è verificato un errore nella richiesta");
+        } else {
+            return undefined;
+        }
 
         con.end();
     });
@@ -1706,7 +1730,7 @@ async function searchFilm(res, req, filters = null) {
     console.log(filters);
 
     var body;
-    if(filters !== null) {
+    if (filters !== null) {
         body = filters;
     } else {
         body = JSON.parse(JSON.stringify(req.body));
@@ -1720,7 +1744,7 @@ async function searchFilm(res, req, filters = null) {
         console.log("Tutte le chiavi dell'oggetto sono vuote.");
 
         //se ho filters allora non devo tornare i film come oggetti, ma solo tutti gli id, quindi devo implementare una query che ritorni tutti gli id di film e chiamarla
-        if(filters === null){
+        if (filters === null) {
             console.log("CHIAMO getAllFilmsDB");
             getAllFilmsDB(res);
         } else {
@@ -1876,7 +1900,7 @@ async function searchFilm(res, req, filters = null) {
 
             // list = list.slice(0, 2);
 
-            if(filters === null) {
+            if (filters === null) {
 
                 if (list.length > 0) {
 
@@ -2276,6 +2300,7 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
         console.log(q);
 
         queries.push(q);
+        queries.push(`SELECT t.resource_id as id_rappr_luogo, t1.resource_id as id_unita_catalografica, t2.resource_id as id_copia_film, t2.value_resource_id as id_film FROM rappr_luogo JOIN tabella_unica t ON rappr_luogo.resource_id = t.resource_id JOIN tabella_unica t1 ON t.value_resource_id = t1.resource_id JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t.local_name = "hasLinkedFilmUnitCatalogueRecord" AND t1.local_name = "hasLinkedFilmCopyCatalogueRecord" AND t2.local_name = "hasLinkedFilmCatalogueRecord";;`);
 
         /*
 
@@ -2374,7 +2399,6 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
 }
 
 
-
 async function getRapprLuogo(res, req) {
     console.log("BODY");
     console.log(req.body);
@@ -2397,4 +2421,102 @@ async function getRapprLuogo(res, req) {
 
     console.log("rapprLuogoLocusFilters");
     console.log(rapprLuogoLocusFilters);
+
+    //contiene le rappresentazioni luogo che sono connesse ad un film che rispetta i filtri sui film
+
+    if (rapprLuogoFilmFilters.length === 0 || rapprLuogoLocusFilters.length === 0) {
+        //TODO: nessun risultato trovato con questi filtri
+    } else {
+        if (rapprLuogoFilmFilters.length > 0 && rapprLuogoLocusFilters.length > 0) {
+            //quale film rispetta i filtri
+            var filteredRapprLuogo = rapprLuogoLocusFilters.filter(obj => rapprLuogoFilmFilters.includes(obj.id_film));
+
+            var rapprLuogoIDs = filteredRapprLuogo.map(obj => obj.id_rappr_luogo);
+            console.log("rapprLuogoIDs");
+            console.log(rapprLuogoIDs);
+
+            let prom = new Promise((resolve, reject) => {
+                console.log("CHIEDO LE RISORSE");
+                var resources = getResourceFromID(rapprLuogoIDs, null);
+                resolve(resources);
+            });
+
+            prom.then(function (resources) {
+                    console.log("HO OTTENUTO LE RISORSE!!");
+
+                    if (!Array.isArray(resources)) {
+                        //la risorsa è solo una, quindi mi creo un array con solo lei
+                        resources = [resources];
+                    } // altrimenti: ho già un array di rappr luogo
+
+
+                    //TODO: idea -> guardare separatamente le rappr luogo che rispettano il filtro di data nel luogo di ripresa e di data nel luogo narrativo
+
+                    //if (body.locusFilters.narrativeDate !== null && body.locusFilters.narrativeDate !== undefined) {
+
+                    resources.forEach(rappr_luogo => {
+
+                        //console.log(JSON.stringify(rappr_luogo["precro:hasContextualElementsData"]));
+                        //console.log(rappr_luogo["precro:hasContextualElementsData"]);
+
+                        if (rappr_luogo["precro:hasContextualElementsData"]) {
+                            if (rappr_luogo["precro:hasContextualElementsData"][0]["value"][0] && rappr_luogo["precro:hasContextualElementsData"][0]["value"][0]["precro:narrativeTimeInterval"]) {
+                                var date = rappr_luogo["precro:hasContextualElementsData"][0]["value"][0]["precro:narrativeTimeInterval"][0]["value"];
+
+                                console.log("DATA CONTESTO NARRATIVO:");
+                                console.log(date);
+
+                                const regexString = /\b(\d{1,4}\s?(?:a\.C\.|d\.C\.)*)(?=(?:\s|$))/gi;
+
+                                const matches = date.match(regexString);
+
+                                if (matches) {
+                                    console.log(matches);
+                                    const anni = matches.filter(match => parseInt(match) >= 0 && parseInt(match) <= 9999);
+                                    console.log("Anni:", anni);
+
+                                    if(anni.length > 1){
+                                        var fromYearString = anni[0];
+                                        var toYearString = anni[1];
+
+                                        console.log("Dall'anno: ", fromYearString);
+                                        console.log("All'anno: ", toYearString);
+
+                                    } else {
+                                        var year = anni[0];
+                                        console.log("Anno: ", year);
+
+                                    }
+                                } else {
+                                    console.log("Nessun match trovato.");
+                                }
+
+
+                            } else {
+                                //TODO: igonrare questa rappr luogo
+                            }
+                        } else {
+                            //TODO: igonrare questa rappr luogo
+                        }
+
+                    });
+                    //}
+
+                    //TODO: filtrare quelle che hanno le date corrette!
+
+                }
+            )
+            ;
+
+
+        } else if (rapprLuogoFilmFilters.length === 0) {
+            //TODO: restituire un messaggio che dica che non sono stati trovati dei risultati per i filtri sui film
+        } else if (rapprLuogoLocusFilters.length === 0) {
+            //TODO: restituire un messaggio che dica che non sono stati trovati dei risultati per i filtri sui luoghi
+        }
+    }
+
+
+    console.log("filteredRapprLuogo FILTRATI PER FILM");
+    console.log(filteredRapprLuogo);
 }

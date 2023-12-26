@@ -1,7 +1,7 @@
 function composeLocusQuery(objectFilters) {
     console.log("COMPOSE FILM TITLE!!");
 
-    var query = "";
+    var query = "CREATE TEMPORARY TABLE rappr_luogo AS(";
     /*
     var query = `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
                 SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
@@ -142,6 +142,8 @@ function composeLocusQuery(objectFilters) {
 
         query_parts[3] = true;
     }
+
+    query += ");"
 
     return query;
 }
