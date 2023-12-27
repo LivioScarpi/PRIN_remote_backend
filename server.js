@@ -2657,12 +2657,13 @@ async function getRapprLuogo(res, req) {
                 let catalogoFilm = {};
 
                 unita_catalografiche.forEach(unita => {
-                    const {filmId, filmTitle} = getFilmInfo(unita);
+                    const {filmId, filmTitle, filmImageUrl} = getFilmInfo(unita);
 
                     if (!catalogoFilm[filmId]) {
                         catalogoFilm[filmId] = {
                             filmId: filmId,
                             filmTitle: filmTitle,
+                            filmImageUrl: filmImageUrl,
                             unita: []
                         };
                     }
@@ -2691,9 +2692,18 @@ async function getRapprLuogo(res, req) {
 // Funzione per estrarre l'ID del film e il titolo da un'unità catalografica
 function getFilmInfo(unita) {
     const filmInfo = unita["fiucro:hasLinkedFilmCopyCatalogueRecord"][0]["value"][0]["ficocro:hasLinkedFilmCatalogueRecord"][0]["value"][0]["dcterms:title"][0];
+
+    var filmImageUrl = null;
+    var imageData = unita["fiucro:hasLinkedFilmCopyCatalogueRecord"][0]["value"][0]["ficocro:hasLinkedFilmCatalogueRecord"][0]["value"][0]["ficro:hasImageData"];
+
+    if(imageData){
+        filmImageUrl = imageData[0]["value"][0]["ficro:caption"][0]["media_link"];
+    }
+
     return {
         filmId: filmInfo.resource_id,
-        filmTitle: filmInfo.value
+        filmTitle: filmInfo.value,
+        filmImageUrl: filmImageUrl,
     };
 }
 
