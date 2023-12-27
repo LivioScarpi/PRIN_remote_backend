@@ -2450,70 +2450,132 @@ async function getRapprLuogo(res, req) {
                     } // altrimenti: ho già un array di rappr luogo
 
 
+                    //array di rappresentazioni luogo che rispettano il range di ambientazione nel tempo
+                    var rapprLuogoCorrectNarrativeTime = [];
+
                     //TODO: idea -> guardare separatamente le rappr luogo che rispettano il filtro di data nel luogo di ripresa e di data nel luogo narrativo
 
-                    //if (body.locusFilters.narrativeDate !== null && body.locusFilters.narrativeDate !== undefined) {
-
-                    resources.forEach(rappr_luogo => {
-
-                        //console.log(JSON.stringify(rappr_luogo["precro:hasContextualElementsData"]));
-                        //console.log(rappr_luogo["precro:hasContextualElementsData"]);
-
-                        if (rappr_luogo["precro:hasContextualElementsData"]) {
-                            if (rappr_luogo["precro:hasContextualElementsData"][0]["value"][0] && rappr_luogo["precro:hasContextualElementsData"][0]["value"][0]["precro:narrativeTimeInterval"]) {
-                                var date = rappr_luogo["precro:hasContextualElementsData"][0]["value"][0]["precro:narrativeTimeInterval"][0]["value"];
-
-                                console.log("DATA CONTESTO NARRATIVO:");
-                                console.log(date);
+                    if (body.locusFilters.narrativeYearRange !== null && body.locusFilters.narrativeYearRange !== undefined) {
+                        console.log("narrativeYearRange");
+                        console.log(body.locusFilters.narrativeYearRange);
 
 
-                                const regexString = /\b(\d{1,4}\s?(?:a\.C\.|d\.C\.)*)\s*(ca\.|)(?=(?:\s|$))/gi;
-                                const stringa = "1201 a.C. - 23/11/202 d.C. ca. - (Commento)";
+                        var fromYear = body.locusFilters.narrativeYearRange.fromYear;
+                        /*if(fromYear.era === 'a.C.'){
+                            fromYear.year = -fromYear.year;
+                        }*/
+                        var toYear = body.locusFilters.narrativeYearRange.toYear;
+                        /*if(toYear.era === 'a.C.'){
+                            toYear.year = -toYear.year;
+                        }*/
 
-                                const matches = date.match(regexString);
 
-                                if (matches) {
-                                    console.log(matches);
-                                    const anni = matches.filter(match => {
-                                        const parsed = parseInt(match);
-                                        return !isNaN(parsed) && parsed >= 0 && parsed <= 9999;
-                                    });
-                                    console.log("Anni:", anni);
+                        const fromDate = convertToDate(`${fromYear.year} ${fromYear.era}`);
+                        const toDate = convertToDate(`${toYear.year} ${toYear.era}`);
+                        resources.forEach(rappr_luogo => {
 
-                                    // TODO: se l'anno ha un ca. bisogna calcolare un range più ampio
-                                    if(anni.length > 1){
-                                        var fromYearString = anni[0];
-                                        var toYearString = anni[1];
+                            //console.log(JSON.stringify(rappr_luogo["precro:hasContextualElementsData"]));
+                            //console.log(rappr_luogo["precro:hasContextualElementsData"]);
 
-                                        console.log("Dall'anno: ", fromYearString);
-                                        console.log("All'anno: ", toYearString);
+                            if (rappr_luogo["precro:hasContextualElementsData"]) {
+                                if (rappr_luogo["precro:hasContextualElementsData"][0]["value"][0] && rappr_luogo["precro:hasContextualElementsData"][0]["value"][0]["precro:narrativeTimeInterval"]) {
+                                    var date = rappr_luogo["precro:hasContextualElementsData"][0]["value"][0]["precro:narrativeTimeInterval"][0]["value"];
 
+                                    console.log("DATA CONTESTO NARRATIVO:");
+                                    console.log(date);
+
+                                    //TEST CON ALTRE DATE
+                                    date = "30 a.C. - 22 a.C. ca. - (Commento)"
+
+
+                                    const regexString = /\b(\d{1,4}\s?(?:a\.C\.|d\.C\.)*)\s*(ca\.|)(?=(?:\s|$))/gi;
+
+                                    const matches = date.match(regexString);
+
+                                    if (matches) {
+                                        console.log(matches);
+                                        const anni = matches.filter(match => {
+                                            const parsed = parseInt(match);
+                                            return !isNaN(parsed) && parsed >= 0 && parsed <= 9999;
+                                        });
+                                        console.log("Anni:", anni);
+
+                                        // TODO: se l'anno ha un ca. bisogna calcolare un range più ampio
+                                        if (anni.length > 1) {
+                                            console.log("C'è un range di anni");
+                                            var fromYearString = anni[0];
+                                            var toYearString = anni[1];
+
+                                            console.log("Dall'anno: ", fromYearString);
+                                            console.log("All'anno: ", toYearString);
+
+                                            const startDate = convertDate(fromYearString);
+                                            const endDate = convertDate(toYearString);
+
+                                            var dates = startDate.concat(endDate);
+
+                                            console.log("startDate");
+                                            console.log(startDate);
+                                            console.log("endDate");
+                                            console.log(endDate);
+
+                                            console.log("\n\nDATE CONCATENATE IN UN'UNICO ARRAY:");
+                                            console.log(dates);
+
+                                            console.log("let risultato = arrayDiValori.some(checkCondition);");
+                                            let risultato = dates.some(date => checkDateInRange(date, fromDate, toDate));
+                                            console.log(risultato);
+
+                                            if(risultato){
+                                                rapprLuogoCorrectNarrativeTime.push(rappr_luogo);
+                                            }
+
+                                        } else {
+
+                                            console.log("C'è solo un anno");
+                                            var year = anni[0];
+                                            console.log("Anno: ", year);
+
+                                            const dates = convertDate(year);
+                                            let risultato = dates.some(date => checkDateInRange(date, fromDate, toDate));
+
+                                            console.log(risultato);
+
+                                            if(risultato){
+                                                rapprLuogoCorrectNarrativeTime.push(rappr_luogo);
+                                            }
+
+
+                                        }
                                     } else {
-                                        var year = anni[0];
-                                        console.log("Anno: ", year);
-
+                                        console.log("Nessun match trovato.");
                                     }
+
+
                                 } else {
-                                    console.log("Nessun match trovato.");
+                                    //TODO: igonrare questa rappr luogo
                                 }
-
-
-
                             } else {
                                 //TODO: igonrare questa rappr luogo
                             }
-                        } else {
-                            //TODO: igonrare questa rappr luogo
-                        }
 
-                    });
-                    //}
+                        });
+                    } else {
+                        //Nessun filtro sul periodo narrativo, quindi non tutte buone
+                        console.log("Nessun filtro sul periodo narrativo, quindi non tutte buone");
+                        rapprLuogoCorrectNarrativeTime = resources;
+                    }
 
-                    //TODO: filtrare quelle che hanno le date corrette!
+                    console.log("rapprLuogoCorrectNarrativeTime");
+                    console.log(rapprLuogoCorrectNarrativeTime);
+
 
                 }
-            )
-            ;
+            );
+
+            //TODO: filtrare sulla base della data di ripresa
+
+            var rapprLuogoCameraPlacementTime = [];
 
 
         } else if (rapprLuogoFilmFilters.length === 0) {
@@ -2526,4 +2588,45 @@ async function getRapprLuogo(res, req) {
 
     console.log("filteredRapprLuogo FILTRATI PER FILM");
     console.log(filteredRapprLuogo);
+}
+
+
+// Funzione per convertire una data nel formato 'anno era' in un oggetto { year, era }
+function convertDate(dateString) {
+
+    var bufferYear = 3;
+
+    if (!dateString.includes('ca.')) {
+        const [year, era] = dateString.split(' ');
+        const parsedYear = parseInt(year) * (era === 'a.C.' ? -1 : 1);
+        return [new Date(parsedYear, 0)]; // Mese 0 rappresenta gennaio
+    } else {
+        const split = dateString.split(' ');
+        var parsedYear = parseInt(split[0]);
+
+        if (split.length === 3) {
+            parsedYear = parsedYear * (split[1] === 'a.C.' ? -1 : 1);
+
+            if (split[1] === 'a.C.') {
+                return [new Date(parsedYear - bufferYear, 0), new Date(parsedYear + bufferYear, 0)];
+            } else {
+                return [new Date(parsedYear - bufferYear, 0), new Date(parsedYear + bufferYear, 0)];
+            }
+        } else {
+            return [new Date(parsedYear - bufferYear, 0), new Date(parsedYear + bufferYear, 0)];
+        }
+    }
+
+}
+
+// Funzione per convertire una data nel formato 'anno era' in un oggetto Date
+function convertToDate(dateString) {
+    const [year, era] = dateString.split(' ');
+    const numericYear = parseInt(year) * (era === 'a.C.' ? -1 : 1);
+    return new Date(numericYear, 0); // Mese 0 rappresenta gennaio
+}
+
+// Funzione per verificare se una data rientra nell'intervallo specificato dall'utente
+function checkDateInRange(date, fromDate, toDate) {
+    return date >= fromDate && date <= toDate;
 }
