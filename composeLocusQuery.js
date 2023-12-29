@@ -182,7 +182,7 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
     const string_ids = ids.join(', ');
 
     var list = ottieniValoriConnessi(ids, locusRelationshipsDictionary);
-    console.log("LIST");
+    console.log("LIST OTTIENI VALORI CONNESSI");
 
     console.log(list);
     const list_string_ids = list.join(', ');
@@ -278,9 +278,12 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
                            LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
                            LEFT JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
                   WHERE FIND_IN_SET(t1.resource_id, (
-                            SELECT GROUP_CONCAT(Lista_id_connessi SEPARATOR ',')
-                            FROM LocusRelationships
-                            WHERE ID IN (${ids})
+                            SELECT GROUP_CONCAT(ID SEPARATOR ',') AS All_List
+                            FROM (
+                                     SELECT ID FROM LocusRelationships WHERE ID IN (${ids})
+                                     UNION ALL
+                                     SELECT DISTINCT Lista_id_connessi AS ID FROM LocusRelationships WHERE ID IN (${ids}) AND Lista_id_connessi <> ''
+                                 ) AS CombinedResults
                         ))
                   `;
 

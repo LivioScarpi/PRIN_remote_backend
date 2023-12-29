@@ -229,7 +229,7 @@ connection.connect(async (err) => {
             }
 
         });
-        
+
         //Creo la query per locusOverTimeRelationshipsDictionary
         var queryLocusOverTimeRelationshipsDictionary = `INSERT INTO LocusOverTimeRelationships (ID, Lista_id_connessi) VALUES `;
 
