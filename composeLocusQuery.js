@@ -181,11 +181,13 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
 
     const string_ids = ids.join(', ');
 
+    /*
     var list = ottieniValoriConnessi(ids, locusRelationshipsDictionary);
     console.log("LIST OTTIENI VALORI CONNESSI");
 
     console.log(list);
     const list_string_ids = list.join(', ');
+    */
 
     //Tipo libero
     /*
@@ -453,11 +455,14 @@ function composeLocusOverTime(queries, ids, type, filter, locusOverTimeRelations
     const string_ids = ids.join(', ');
 
 
+    /*
     var list = ottieniValoriConnessi(ids, locusOverTimeRelationshipsDictionary);
     console.log("LIST");
 
     console.log(list);
     const list_string_ids = list.join(', ');
+
+     */
 
     //Tipo libero
     /*
