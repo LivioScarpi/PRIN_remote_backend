@@ -293,7 +293,7 @@ connection.connect(async (err) => {
                 console.log("Server in ascolto sulla porta " + portNumber);
 
                 // Schedula l'esecuzione del metodo alle 3 di notte (alle 3:00 AM)
-                cron.schedule('39 14 * * *', updateData);
+                cron.schedule('0 3 * * *', updateData);
             });
 
             // Aggiornamento delle strutture dati ogni tot millisecondi (ad esempio ogni 24 ore)
@@ -347,11 +347,11 @@ const metodoDaEseguire = () => {
 };
 
 function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary) {
-    const queries = [`START TRANSACTION`,
+    const queries = [`START TRANSACTION;`,
 
-        `DROP TABLE IF EXISTS LocusRelationships`,
+        `DROP TABLE IF EXISTS LocusRelationships;`,
 
-        `DROP TABLE IF EXISTS LocusOverTimeRelationships`,
+        `DROP TABLE IF EXISTS LocusOverTimeRelationships;`,
 
         `CREATE TABLE IF NOT EXISTS LocusRelationships (
                                     ID INT PRIMARY KEY,
@@ -413,17 +413,22 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
     return new Promise((resolve, reject) => {
 
         function executeBatchQueries(queries, index) {
+            console.log("queries.length: ", queries.length);
+            console.log("INDEX: ", index);
             if (index < queries.length) {
                 const query = queries[index];
                 connection.query(query, (error, queryResults) => {
                     if (error) {
+                        console.log("SONO IN ERRORE");
                         connection.rollback(() => {
                             console.error('getLocusRelationships - Errore nell\'esecuzione della query:', error);
                             //connection.end();
                         });
                     } else {
                         //Tutto ok
-                        console.log("Query eseguita con successo");
+
+                        console.log("\n\n\nQuery eseguita con successo");
+                        console.log(query);
                     }
                     executeBatchQueries(queries, index + 1);
                 });
@@ -2586,7 +2591,13 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
         var indexResults = queries.length - 2;
 
 
-        //console.log(queries);
+        console.log("\n\n\n\n\n\nARRAY DI QUERIES");
+        queries.forEach(q => {
+            console.log(q);
+            console.log("\n");
+        })
+        console.log("\n\n\n\n\n\n");
+
 
         var promise = new Promise((resolve, reject) => {
 
