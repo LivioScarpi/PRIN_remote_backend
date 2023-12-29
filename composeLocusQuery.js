@@ -411,7 +411,14 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
                            LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
                            LEFT JOIN tabella_unica tipoiri ON tipi.value_resource_id = tipoiri.resource_id
                            LEFT JOIN tabella_unica nometipo ON tipoiri.value_resource_id = nometipo.resource_id
-                  WHERE t1.resource_id IN (${list_string_ids}) `;
+                  WHERE FIND_IN_SET(t1.resource_id, (
+                            SELECT GROUP_CONCAT(ID SEPARATOR ',') AS All_List
+                            FROM (
+                                     SELECT ID FROM LocusRelationships WHERE ID IN (${ids})
+                                     UNION ALL
+                                     SELECT DISTINCT Lista_id_connessi AS ID FROM LocusRelationships WHERE ID IN (${ids}) AND Lista_id_connessi <> ''
+                                 ) AS CombinedResults
+                        ))`;
 
     if (type !== "" && type !== null && type !== undefined) {
         q += `and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
