@@ -520,7 +520,14 @@ function composeLocusOverTime(queries, ids, type, filter, locusOverTimeRelations
         WHERE t1.local_name = 'hasLocusOverTimeData'
           AND t2.local_name = 'hasRelationshipsWithLociData'
           AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf')
-          AND t3.value_resource_id IN (${list_string_ids})
+            AND FIND_IN_SET(t3.value_resource_id, (
+            SELECT GROUP_CONCAT(ID SEPARATOR ',') AS All_List
+            FROM (
+                     SELECT ID FROM LocusOverTimeRelationships WHERE ID IN (${ids})
+                     UNION ALL
+                     SELECT DISTINCT Lista_id_connessi AS ID FROM LocusOverTimeRelationships WHERE ID IN (${ids}) AND Lista_id_connessi <> ''
+                 ) AS CombinedResults
+        ))
                 `;
 
     if (type !== "" && type !== null && type !== undefined) {
@@ -603,7 +610,14 @@ function composeLocusOverTime(queries, ids, type, filter, locusOverTimeRelations
         WHERE t1.local_name = 'hasLocusOverTimeData'
           AND t2.local_name = 'hasRelationshipsWithLociData'
           AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf')
-          AND t3.value_resource_id IN (${list_string_ids})
+          AND FIND_IN_SET(t3.value_resource_id, (
+            SELECT GROUP_CONCAT(ID SEPARATOR ',') AS All_List
+            FROM (
+                     SELECT ID FROM LocusOverTimeRelationships WHERE ID IN (${ids})
+                     UNION ALL
+                     SELECT DISTINCT Lista_id_connessi AS ID FROM LocusOverTimeRelationships WHERE ID IN (${ids}) AND Lista_id_connessi <> ''
+                 ) AS CombinedResults
+        ))
     `;
 
 
