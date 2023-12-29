@@ -7,12 +7,15 @@ const cache = new NodeCache();
 const production = false;
 const functions = require("./composeFilmQuery");
 const locusFunctions = require("./composeLocusQuery");
+const cron = require('node-cron');
 
 const app = express();
 const cors = require("cors");
 
 const portNumber = production ? 3004 : 3003;
 const dbname = production ? "omekas_production_db" : "omekas_db";
+
+var updatingRelationships = false;
 
 /*
 const corsOptions = {
@@ -182,16 +185,10 @@ connection.connect(async (err) => {
         const [locusRelationships, locusOverTimeRelationships] = await Promise.all([getLocusRelationships(), getLocusOverTimeRelationships()]);
 
         console.log("Strutture dati ottenute");
-        //console.log('LocusRelationships:', locusRelationships);
-        //console.log('locusOverTimeRelationships:', locusOverTimeRelationships);
-
         locusRelationshipsDictionary = locusRelationships;
         locusOverTimeRelationshipsDictionary = locusOverTimeRelationships;
 
-
-        console.log("locusRelationshipsDictionary");
-        console.log(locusRelationshipsDictionary);
-
+        /*
         const queries = [`START TRANSACTION`,
 
             `DROP TABLE IF EXISTS LocusRelationships`,
@@ -280,18 +277,30 @@ connection.connect(async (err) => {
             executeBatchQueries(queries, 0);
 
         });
+        */
+
+        var prom = createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary);
 
         prom.then(() => {
             console.log('Promise risolta con successo senza parametri.');
 
+            //Resetto i dizionari
+            locusRelationshipsDictionary = null;
+            locusOverTimeRelationshipsDictionary = null;
+
             // Avvia il server Express solo dopo aver ottenuto entrambe le strutture dati
             app.listen(portNumber, "localhost", () => {
                 console.log("Server in ascolto sulla porta " + portNumber);
+
+                // Schedula l'esecuzione del metodo alle 3 di notte (alle 3:00 AM)
+                cron.schedule('0 3 * * *', updateData);
             });
 
             // Aggiornamento delle strutture dati ogni tot millisecondi (ad esempio ogni 24 ore)
-            const intervalInMilliseconds = 7 * 60 * 60 * 1000; //1 * 60 * 60 * 1000; // 24 ore
-            setInterval(updateData, intervalInMilliseconds);
+            //const intervalInMilliseconds = 7 * 60 * 60 * 1000; //1 * 60 * 60 * 1000; // 24 ore
+            //setInterval(updateData, intervalInMilliseconds);
+
+
 
         }).catch((errore) => {
             console.error('Si è verificato un errore:', errore);
@@ -326,16 +335,134 @@ connection.connect(async (err) => {
     }*/
 });
 
+const metodoDaEseguire = () => {
+    try {
+        // Inserisci qui la logica del metodo che vuoi eseguire
+        console.log('Il metodo è stato eseguito alle 3 di notte!');
+        // Esempio di lancio di un errore per test
+        // throw new Error('Errore durante l\'esecuzione del metodo.');
+    } catch (error) {
+        console.error('Errore durante l\'esecuzione del metodo:', error);
+        // Puoi gestire l'errore qui, ad esempio inviando una notifica o registrandolo
+    }
+};
+
+function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary){
+    const queries = [`START TRANSACTION`,
+
+        `DROP TABLE IF EXISTS LocusRelationships`,
+
+        `DROP TABLE IF EXISTS LocusOverTimeRelationships`,
+
+        `CREATE TABLE IF NOT EXISTS LocusRelationships (
+                                    ID INT PRIMARY KEY,
+                                    Lista_id_connessi TEXT
+            );`,
+
+        `CREATE TABLE IF NOT EXISTS LocusOverTimeRelationships (
+                                    ID INT PRIMARY KEY,
+                                    Lista_id_connessi TEXT
+            );`,
+    ];
+
+    //Creo la query per locusRelationshipsDictionary
+    var queryLocusRelationshipsDictionary = `INSERT INTO LocusRelationships (ID, Lista_id_connessi) VALUES `;
+
+    // Rimuovo la chiave null
+    delete locusRelationshipsDictionary["null"];
+
+    let chiavi = Object.keys(locusRelationshipsDictionary);
+
+    chiavi.forEach((chiave, indice) => {
+
+        let valore = locusRelationshipsDictionary[chiave];
+        queryLocusRelationshipsDictionary += `(${chiave}, '${valore}')`;
+
+        if (indice < chiavi.length - 1) {
+            queryLocusRelationshipsDictionary += ', ';
+        } else {
+            queryLocusRelationshipsDictionary += ';';
+        }
+
+    });
+
+    //Creo la query per locusOverTimeRelationshipsDictionary
+    var queryLocusOverTimeRelationshipsDictionary = `INSERT INTO LocusOverTimeRelationships (ID, Lista_id_connessi) VALUES `;
+
+    // Rimuovo la chiave null
+    delete locusOverTimeRelationshipsDictionary["null"];
+
+    let chiaviOverTime = Object.keys(locusOverTimeRelationshipsDictionary);
+    chiaviOverTime.forEach((chiave, indice) => {
+        let valore = locusOverTimeRelationshipsDictionary[chiave];
+        queryLocusOverTimeRelationshipsDictionary += `(${chiave}, '${valore}')`;
+
+        if (indice < chiaviOverTime.length - 1) {
+            queryLocusOverTimeRelationshipsDictionary += ', ';
+        } else {
+            queryLocusOverTimeRelationshipsDictionary += ';';
+        }
+    });
+
+    queries.push(queryLocusRelationshipsDictionary);
+    queries.push(queryLocusOverTimeRelationshipsDictionary);
+    queries.push("COMMIT;");
+
+    console.log(queries);
+
+
+    return new Promise((resolve, reject) => {
+
+        function executeBatchQueries(queries, index) {
+            if (index < queries.length) {
+                const query = queries[index];
+                connection.query(query, (error, queryResults) => {
+                    if (error) {
+                        connection.rollback(() => {
+                            console.error('getLocusRelationships - Errore nell\'esecuzione della query:', error);
+                            //connection.end();
+                        });
+                    } else {
+                        //Tutto ok
+                        console.log("Query eseguita con successo");
+                    }
+                    executeBatchQueries(queries, index + 1);
+                });
+            } else {
+                resolve();
+            }
+        }
+
+        executeBatchQueries(queries, 0);
+
+    });
+}
+
 // Funzione per aggiornare le strutture dati
 function updateData() {
     console.log("Aggiorno le strutture dati");
+
+    updatingRelationships = true;
 
     Promise.all([getLocusRelationships(), getLocusOverTimeRelationships()])
         .then(([updatedLocusRelationships, updatedLocuOverTimesRelationships]) => {
             locusRelationshipsDictionary = updatedLocusRelationships;
             locusOverTimeRelationshipsDictionary = updatedLocuOverTimesRelationships;
             //console.log('Strutture dati aggiornate:', updatedLocusRelationships, updatedLocuOverTimesRelationships);
-            console.log("Strutture dati aggionate");
+            var prom = createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary);
+
+            prom.then(() => {
+                console.log('Promise risolta con successo senza parametri.');
+
+                //Resetto i dizionari
+                locusRelationshipsDictionary = null;
+                locusOverTimeRelationshipsDictionary = null;
+
+                console.log("Strutture dati aggionate e dizionari impostati a null");
+            }).catch((errore) => {
+                console.error('Si è verificato un errore:', errore);
+            });
+
         })
         .catch((err) => {
             console.error('Errore durante l\'aggiornamento delle strutture dati:', err);
