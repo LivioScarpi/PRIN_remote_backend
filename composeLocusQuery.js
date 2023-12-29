@@ -277,7 +277,12 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
                            LEFT JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
                            LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
                            LEFT JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
-                  WHERE t1.resource_id IN (${list_string_ids}) `;
+                  WHERE FIND_IN_SET(t1.resource_id, (
+                            SELECT GROUP_CONCAT(Lista_id_connessi SEPARATOR ',')
+                            FROM LocusRelationships
+                            WHERE ID IN (${ids})
+                        ))
+                  `;
 
     if (type !== "" && type !== null && type !== undefined) {
         q += `and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
@@ -294,6 +299,9 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
     q += ');';
 
     queries.push(q);
+
+    console.log("\n\n\nSTAMPO LA QUERY MODIFICATA QUAAAA");
+    console.log(q);
 
 
     //Nome tipo

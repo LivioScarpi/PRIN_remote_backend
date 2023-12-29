@@ -188,14 +188,119 @@ connection.connect(async (err) => {
         locusRelationshipsDictionary = locusRelationships;
         locusOverTimeRelationshipsDictionary = locusOverTimeRelationships;
 
-        // Avvia il server Express solo dopo aver ottenuto entrambe le strutture dati
-        app.listen(portNumber, "localhost", () => {
-            console.log("Server in ascolto sulla porta " + portNumber);
+
+        console.log("locusRelationshipsDictionary");
+        console.log(locusRelationshipsDictionary);
+
+        const queries = [`START TRANSACTION`,
+
+            `DROP TABLE IF EXISTS LocusRelationships`,
+
+            `DROP TABLE IF EXISTS LocusOverTimeRelationships`,
+
+            `CREATE TABLE IF NOT EXISTS LocusRelationships (
+                                    ID INT PRIMARY KEY,
+                                    Lista_id_connessi TEXT
+            );`,
+
+            `CREATE TABLE IF NOT EXISTS LocusOverTimeRelationships (
+                                    ID INT PRIMARY KEY,
+                                    Lista_id_connessi TEXT
+            );`,
+        ];
+
+        //Creo la query per locusRelationshipsDictionary
+        var queryLocusRelationshipsDictionary = `INSERT INTO LocusRelationships (ID, Lista_id_connessi) VALUES `;
+
+        // Rimuovo la chiave null
+        delete locusRelationshipsDictionary["null"];
+
+        let chiavi = Object.keys(locusRelationshipsDictionary);
+
+        chiavi.forEach((chiave, indice) => {
+
+            let valore = locusRelationshipsDictionary[chiave];
+            queryLocusRelationshipsDictionary += `(${chiave}, '${valore}')`;
+
+            if (indice < chiavi.length - 1) {
+                queryLocusRelationshipsDictionary += ', ';
+            } else {
+                queryLocusRelationshipsDictionary += ';';
+            }
+
+        });
+        
+        //Creo la query per locusOverTimeRelationshipsDictionary
+        var queryLocusOverTimeRelationshipsDictionary = `INSERT INTO LocusOverTimeRelationships (ID, Lista_id_connessi) VALUES `;
+
+        // Rimuovo la chiave null
+        delete locusOverTimeRelationshipsDictionary["null"];
+
+        let chiaviOverTime = Object.keys(locusOverTimeRelationshipsDictionary);
+        chiaviOverTime.forEach((chiave, indice) => {
+            let valore = locusOverTimeRelationshipsDictionary[chiave];
+            queryLocusOverTimeRelationshipsDictionary += `(${chiave}, '${valore}')`;
+
+            if (indice < chiaviOverTime.length - 1) {
+                queryLocusOverTimeRelationshipsDictionary += ', ';
+            } else {
+                queryLocusOverTimeRelationshipsDictionary += ';';
+            }
         });
 
-        // Aggiornamento delle strutture dati ogni tot millisecondi (ad esempio ogni 24 ore)
-        const intervalInMilliseconds = 7 * 60 * 60 * 1000; //1 * 60 * 60 * 1000; // 24 ore
-        setInterval(updateData, intervalInMilliseconds);
+        queries.push(queryLocusRelationshipsDictionary);
+        queries.push(queryLocusOverTimeRelationshipsDictionary);
+        queries.push("COMMIT;");
+
+        console.log(queries);
+
+
+        var prom = new Promise((resolve, reject) => {
+
+            function executeBatchQueries(queries, index) {
+                if (index < queries.length) {
+                    const query = queries[index];
+                    connection.query(query, (error, queryResults) => {
+                        if (error) {
+                            connection.rollback(() => {
+                                console.error('getLocusRelationships - Errore nell\'esecuzione della query:', error);
+                                //connection.end();
+                            });
+                        } else {
+                            //Tutto ok
+                            console.log("Query eseguita con successo");
+                        }
+                        executeBatchQueries(queries, index + 1);
+                    });
+                } else {
+                    resolve();
+                }
+            }
+
+            executeBatchQueries(queries, 0);
+
+        });
+
+        prom.then(() => {
+            console.log('Promise risolta con successo senza parametri.');
+
+            // Avvia il server Express solo dopo aver ottenuto entrambe le strutture dati
+            app.listen(portNumber, "localhost", () => {
+                console.log("Server in ascolto sulla porta " + portNumber);
+            });
+
+            // Aggiornamento delle strutture dati ogni tot millisecondi (ad esempio ogni 24 ore)
+            const intervalInMilliseconds = 7 * 60 * 60 * 1000; //1 * 60 * 60 * 1000; // 24 ore
+            setInterval(updateData, intervalInMilliseconds);
+
+        }).catch((errore) => {
+            console.error('Si è verificato un errore:', errore);
+        });
+
+
+        ////////////////
+
+
     } catch (error) {
         console.error('Errore durante il recupero delle strutture dati:', error);
     }
@@ -290,7 +395,26 @@ function getLocusRelationships() {
             SELECT *
             FROM RelationsCTE;`,
 
-            `SELECT resource_id, t2_value_resource_id FROM locus_relationships_free_type;`,
+            //`SELECT resource_id, t2_value_resource_id FROM locus_relationships_free_type;`,
+
+            //Versione in cui companiono anche i locus nel tempo
+            /*
+            `SELECT resource_id, t2_value_resource_id FROM locus_relationships_free_type
+            UNION ALL
+            SELECT object_id AS resource_id, NULL AS t2_value_resource_id
+            FROM locus
+            WHERE object_id NOT IN (SELECT resource_id FROM locus_relationships_free_type) AND object_id NOT IN (SELECT t2_value_resource_id FROM locus_relationships_free_type);`,
+            */
+
+            //Questa query fa si che vengano recuperati anche i locus che non hanno nessun a relazione con altri locus, oppure che ce l'hanno, ma con un locus nel tempo e quindi che vengono scartati nella prima riga
+            `SELECT resource_id, t2_value_resource_id FROM locus_relationships_free_type WHERE resource_id IN (SELECT object_id FROM locus) AND t2_value_resource_id IN (SELECT object_id FROM locus)
+            UNION ALL
+            SELECT object_id AS resource_id, NULL AS t2_value_resource_id
+            FROM locus
+            WHERE
+            object_id NOT IN (SELECT resource_id FROM locus_relationships_free_type WHERE resource_id IN (SELECT object_id FROM locus) AND t2_value_resource_id IN (SELECT object_id FROM locus))
+            AND
+            object_id NOT IN (SELECT t2_value_resource_id FROM locus_relationships_free_type WHERE resource_id IN (SELECT object_id FROM locus) AND t2_value_resource_id IN (SELECT object_id FROM locus));`,
 
             //`DROP TEMPORARY TABLE IF EXISTS locus;`,
 
@@ -434,6 +558,9 @@ function getLocusOverTimeRelationships() {
 }
 
 function getDictionary(data) {
+    console.log("\n\n\n\nDATA QUA");
+    console.log(data);
+
     let result = {};
 
     // Costruzione del dizionario
@@ -447,6 +574,7 @@ function getDictionary(data) {
 
         result[part_of].push(place);
     });
+
 
     // Funzione per ottenere gli elementi correlati
     function getRelatedPlaces(place) {
@@ -2696,7 +2824,7 @@ function getFilmInfo(unita) {
     var filmImageUrl = null;
     var imageData = unita["fiucro:hasLinkedFilmCopyCatalogueRecord"][0]["value"][0]["ficocro:hasLinkedFilmCatalogueRecord"][0]["value"][0]["ficro:hasImageData"];
 
-    if(imageData){
+    if (imageData) {
         filmImageUrl = imageData[0]["value"][0]["ficro:caption"][0]["media_link"];
     }
 
