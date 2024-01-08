@@ -1,10 +1,20 @@
+/*
+ * Eseguire il server in modalità prod:
+ * NODE_ENV=production pm2 start server.js --name server_prod
+ * Eseguire il server in modalità sviluppo:
+ * NODE_ENV=development pm2 start server.js --name server_dev
+ * */
+
 const express = require("express");
 const bodyParser = require("body-parser");
 const mysql = require("mysql");
 const {parse} = require("url");
 const NodeCache = require('node-cache');
 const cache = new NodeCache();
-const production = false;
+
+const production = process.env.NODE_ENV === 'production';
+
+//const production = true;
 const functions = require("./composeFilmQuery");
 const locusFunctions = require("./composeLocusQuery");
 const cron = require('node-cron');
@@ -289,12 +299,18 @@ connection.connect(async (err) => {
             locusOverTimeRelationshipsDictionary = null;
 
             // Avvia il server Express solo dopo aver ottenuto entrambe le strutture dati
-            app.listen(portNumber, "localhost", () => {
+            const server = app.listen(portNumber, "localhost", () => {
                 console.log("Server in ascolto sulla porta " + portNumber);
+                console.log("DB name: " + dbname);
 
                 // Schedula l'esecuzione del metodo alle 3 di notte (alle 3:00 AM)
                 cron.schedule('0 3 * * *', updateData);
             });
+            //server.setTimeout(500000);
+            server.timeout = 120000;
+            console.log("Ho messo il timeout");
+            //server.keepAliveTimeout = 120000; // Ensure all inactive connections are terminated by the ALB, by setting this a few seconds higher than the ALB idle timeout
+            //server.headersTimeout = 120000; // Ensure the headersTimeout is set higher than the keepAliveTimeout due to this nodejs regression bug: https://github.com/nodejs/node/issues/27363
 
             // Aggiornamento delle strutture dati ogni tot millisecondi (ad esempio ogni 24 ore)
             //const intervalInMilliseconds = 7 * 60 * 60 * 1000; //1 * 60 * 60 * 1000; // 24 ore
@@ -349,19 +365,96 @@ const metodoDaEseguire = () => {
 function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary) {
     const queries = [`START TRANSACTION;`,
 
+        `DROP TABLE IF EXISTS table_join_free_type;`,
+
+        `DROP TABLE IF EXISTS LocusRelationshipsNew;`,
+
         `DROP TABLE IF EXISTS LocusRelationships;`,
 
         `DROP TABLE IF EXISTS LocusOverTimeRelationships;`,
+
+        `DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
+
+        `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+        SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value, rc.local_name AS resource_class
+        FROM value v
+                 JOIN property p ON v.property_id = p.id JOIN resource r ON v.resource_id = r.id JOIN resource_class rc ON r.resource_class_id = rc.id;
+        ;`,
 
         `CREATE TABLE IF NOT EXISTS LocusRelationships (
                                     ID INT PRIMARY KEY,
                                     Lista_id_connessi TEXT
             );`,
 
+        `CREATE TABLE IF NOT EXISTS LocusRelationshipsNew (
+                                    ID_PARENT INT,
+                                    ID_CHILD INT,
+                                    PRIMARY KEY (ID_PARENT, ID_CHILD)
+            );`,
+
         `CREATE TABLE IF NOT EXISTS LocusOverTimeRelationships (
                                     ID INT PRIMARY KEY,
                                     Lista_id_connessi TEXT
             );`,
+
+        `CREATE TABLE IF NOT EXISTS LocusOverTimeRelationshipsNew (
+                                    ID_PARENT INT,
+                                    ID_CHILD INT,
+                                    PRIMARY KEY (ID_PARENT, ID_CHILD)
+                                   
+            );`,
+
+
+        `CREATE TABLE IF NOT EXISTS table_join_free_type AS
+        SELECT t1.resource_id
+        FROM tabella_unica t1
+        LEFT JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
+        LEFT JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
+        LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
+        LEFT JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
+        WHERE t1.resource_class = "LocusCatalogueRecord";`,
+
+        `CREATE TABLE IF NOT EXISTS table_join_type_name AS
+        SELECT t1.resource_id
+        FROM tabella_unica t1
+         LEFT JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
+         LEFT JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
+         LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
+         LEFT JOIN tabella_unica tipoiri ON tipi.value_resource_id = tipoiri.resource_id
+         LEFT JOIN tabella_unica nometipo ON tipoiri.value_resource_id = nometipo.resource_id
+        WHERE t1.resource_class = "LocusCatalogueRecord";`,
+
+        `CREATE TABLE IF NOT EXISTS table_join_locus_over_time_free_type AS
+        SELECT t1.resource_id AS t1_resource_id, t1.local_name AS t1_local_name, t1.value_resource_id AS t1_value_resource_id, t1.value AS t1_value, t1.resource_class AS t1_resource_class,
+        t2.resource_id AS t2_resource_id, t2.local_name AS t2_local_name, t2.value_resource_id AS t2_value_resource_id, t2.value AS t2_value, t2.resource_class AS t2_resource_class,
+        t3.resource_id AS t3_resource_id, t3.local_name AS t3_local_name, t3.value_resource_id AS t3_value_resource_id, t3.value AS t3_value, t3.resource_class AS t3_resource_class,
+        tipi.resource_id AS tipi_resource_id, tipi.local_name AS tipi_local_name, tipi.value_resource_id AS tipi_value_resource_id, tipi.value AS tipi_value, tipi.resource_class AS tipi_resource_class,
+        tipolibero.resource_id AS tipolibero_resource_id, tipolibero.local_name AS tipolibero_local_name, tipolibero.value_resource_id AS tipolibero_value_resource_id , tipolibero.value AS tipolibero_value, tipolibero.resource_class AS tipolibero_resource_class
+        FROM tabella_unica t1
+        JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
+        JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+        JOIN tabella_unica tipi ON t1.value_resource_id = tipi.resource_id
+        JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
+        WHERE t1.resource_class = "LocusCatalogueRecord" AND t1.local_name = 'hasLocusOverTimeData'
+        AND t2.local_name = 'hasRelationshipsWithLociData'
+        AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf')`,
+
+        `CREATE TABLE IF NOT EXISTS table_join_locus_over_time_type_name AS
+        SELECT t1.resource_id AS t1_resource_id, t1.local_name AS t1_local_name, t1.value_resource_id AS t1_value_resource_id, t1.value AS t1_value, t1.resource_class AS t1_resource_class,
+        t2.resource_id AS t2_resource_id, t2.local_name AS t2_local_name, t2.value_resource_id AS t2_value_resource_id, t2.value AS t2_value, t2.resource_class AS t2_resource_class,
+        t3.resource_id AS t3_resource_id, t3.local_name AS t3_local_name, t3.value_resource_id AS t3_value_resource_id, t3.value AS t3_value, t3.resource_class AS t3_resource_class,
+        tipi.resource_id AS tipi_resource_id, tipi.local_name AS tipi_local_name, tipi.value_resource_id AS tipi_value_resource_id, tipi.value AS tipi_value, tipi.resource_class AS tipi_resource_class,
+        tipoiri.resource_id AS tipoiri_resource_id, tipoiri.local_name AS tipoiri_local_name, tipoiri.value_resource_id AS tipoiri_value_resource_id, tipoiri.value AS tipoiri_value, tipoiri.resource_class AS tipoiri_resource_class,
+        nometipo.resource_id AS nometipo_resource_id, nometipo.local_name AS nometipo_local_name, nometipo.value_resource_id AS nometipo_value_resource_id, nometipo.value AS nometipo_value, nometipo.resource_class AS nometipo_resource_class
+        FROM tabella_unica t1
+        JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
+        JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+        JOIN tabella_unica tipi ON t1.value_resource_id = tipi.resource_id
+        JOIN tabella_unica tipoiri ON tipi.value_resource_id = tipoiri.resource_id
+        JOIN tabella_unica nometipo ON tipoiri.value_resource_id = nometipo.resource_id
+        WHERE t1.resource_class = "LocusCatalogueRecord" AND t1.local_name = 'hasLocusOverTimeData'
+        AND t2.local_name = 'hasRelationshipsWithLociData'
+        AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf');`,
     ];
 
     //Creo la query per locusRelationshipsDictionary
@@ -385,6 +478,75 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
 
     });
 
+
+
+
+    //LocusRelationshipsNew
+
+    //Creo la query per locusRelationshipsDictionary
+    var queryLocusRelationshipsDictionaryNew = `INSERT INTO LocusRelationshipsNew (ID_PARENT, ID_CHILD) VALUES `;
+
+    chiavi.forEach((chiave, indice) => {
+
+        let valore = locusRelationshipsDictionary[chiave];
+        console.log("CHIAVE");
+        console.log(chiave);
+        console.log("VALORE");
+        console.log(valore);
+
+        queryLocusRelationshipsDictionaryNew += `(${chiave}, ${chiave})`;
+
+        var CommaAlreadyAdded = false;
+        if(valore.length === 0 && indice < chiavi.length - 1){
+            queryLocusRelationshipsDictionaryNew += ', ';
+            CommaAlreadyAdded = true;
+        } else {
+            if (indice < chiavi.length - 1) {
+                queryLocusRelationshipsDictionaryNew += ', ';
+            } else {
+                queryLocusRelationshipsDictionaryNew += ';';
+            }
+        }
+
+        if(valore.length > 0){
+            valore.forEach((val, index) => {
+                queryLocusRelationshipsDictionaryNew += `(${chiave}, ${val})`;
+
+                if (index < valore.length - 1) {
+                    queryLocusRelationshipsDictionaryNew += ', ';
+                }
+            })
+        }
+
+        if(!CommaAlreadyAdded && indice < chiavi.length - 1){
+            queryLocusRelationshipsDictionaryNew += ', ';
+        }
+        /*if(valore.length === 0 && indice < chiavi.length - 1){
+            queryLocusRelationshipsDictionaryNew += ', ';
+        } else {
+            if (indice < chiavi.length - 1) {
+                queryLocusRelationshipsDictionaryNew += ', ';
+            } else {
+                queryLocusRelationshipsDictionaryNew += ';';
+            }
+        }*/
+        /*
+        queryLocusRelationshipsDictionaryNew += `(${chiave}, '${valore}')`;
+
+        if (indice < chiavi.length - 1) {
+            queryLocusRelationshipsDictionaryNew += ', ';
+        } else {
+            queryLocusRelationshipsDictionaryNew += ';';
+        }
+*/
+    });
+
+    console.log("queryLocusRelationshipsDictionaryNew");
+    console.log(queryLocusRelationshipsDictionaryNew);
+
+
+
+
     //Creo la query per locusOverTimeRelationshipsDictionary
     var queryLocusOverTimeRelationshipsDictionary = `INSERT INTO LocusOverTimeRelationships (ID, Lista_id_connessi) VALUES `;
 
@@ -404,6 +566,8 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
     });
 
     queries.push(queryLocusRelationshipsDictionary);
+    queries.push(queryLocusRelationshipsDictionaryNew);
+
     queries.push(queryLocusOverTimeRelationshipsDictionary);
     queries.push("COMMIT;");
 
@@ -2728,7 +2892,10 @@ async function getRapprLuogo(res, req) {
 
                         //TODO: idea -> guardare separatamente le rappr luogo che rispettano il filtro di data nel luogo di ripresa e di data nel luogo narrativo
 
-                        if (body.locusFilters.narrativeYearRange !== null && body.locusFilters.narrativeYearRange !== undefined) {
+                        if (body.locusFilters.narrativeYearRange !== null && body.locusFilters.narrativeYearRange !== undefined &&
+                            body.locusFilters.narrativeYearRange.fromYear.year !== 2999 && body.locusFilters.narrativeYearRange.fromYear.era !== 'a.C.' &&
+                            body.locusFilters.narrativeYearRange.toYear.year !== 2999 && body.locusFilters.narrativeYearRange.toYear.era !== 'd.C.'
+                        ) {
                             console.log("narrativeYearRange");
                             console.log(body.locusFilters.narrativeYearRange);
 
@@ -2847,7 +3014,9 @@ async function getRapprLuogo(res, req) {
 
                         var rapprLuogoCameraPlacementTime = [];
 
-                        if (body.locusFilters.cameraPlacementYearRange !== null && body.locusFilters.cameraPlacementYearRange !== undefined) {
+                        if (body.locusFilters.cameraPlacementYearRange !== null && body.locusFilters.cameraPlacementYearRange !== undefined &&
+                            body.locusFilters.cameraPlacementYearRange.fromYear.year !== 2999 && body.locusFilters.cameraPlacementYearRange.fromYear.era !== 'a.C.' &&
+                            body.locusFilters.cameraPlacementYearRange.toYear.year !== 2999 && body.locusFilters.cameraPlacementYearRange.toYear.era !== 'd.C.') {
                             console.log("cameraPlacementYearRange");
                             console.log(body.locusFilters.cameraPlacementYearRange);
 
@@ -2950,6 +3119,11 @@ async function getRapprLuogo(res, req) {
 
                         // Altrimenti esegui la logica della post
                         // ...
+                        return catalogoFilm;
+                        //res.send(catalogoFilm);
+
+                    }).then(function (catalogoFilm) {
+                        console.log("SECONDO THEN OTTENGO CATALOGO FILM");
                         res.send(catalogoFilm);
                     });
 

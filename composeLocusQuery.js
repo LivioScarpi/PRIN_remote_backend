@@ -273,13 +273,9 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
     var q = `CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_list_free_type AS (
             SELECT distinct resource_id
             FROM (
-                  SELECT t1.resource_id
-                  FROM tabella_unica t1
-                           LEFT JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
-                           LEFT JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
-                           LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
-                           LEFT JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
-                  WHERE FIND_IN_SET(t1.resource_id, (
+                  SELECT resource_id
+                  FROM table_join_free_type
+                  WHERE FIND_IN_SET(resource_id, (
                             SELECT GROUP_CONCAT(ID SEPARATOR ',') AS All_List
                             FROM (
                                      SELECT ID FROM LocusRelationships WHERE ID IN (${ids})
@@ -406,14 +402,9 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
     var q = `CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_list_type_name AS (
             SELECT distinct resource_id
             FROM (
-                  SELECT t1.resource_id
-                  FROM tabella_unica t1
-                           LEFT JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
-                           LEFT JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
-                           LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
-                           LEFT JOIN tabella_unica tipoiri ON tipi.value_resource_id = tipoiri.resource_id
-                           LEFT JOIN tabella_unica nometipo ON tipoiri.value_resource_id = nometipo.resource_id
-                  WHERE FIND_IN_SET(t1.resource_id, (
+                  SELECT resource_id
+                  FROM table_join_type_name
+                  WHERE FIND_IN_SET(resource_id, (
                             SELECT GROUP_CONCAT(ID SEPARATOR ',') AS All_List
                             FROM (
                                      SELECT ID FROM LocusRelationships WHERE ID IN (${ids})
@@ -516,16 +507,9 @@ function composeLocusOverTime(queries, ids, type, filter, locusOverTimeRelations
 
     var q = `
     CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_over_time_list_free_type AS
-        SELECT t1.resource_id
-        FROM tabella_unica t1
-                 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
-                 JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
-                 JOIN tabella_unica tipi ON t1.value_resource_id = tipi.resource_id
-                 JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
-        WHERE t1.local_name = 'hasLocusOverTimeData'
-          AND t2.local_name = 'hasRelationshipsWithLociData'
-          AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf')
-            AND FIND_IN_SET(t3.value_resource_id, (
+        SELECT t1_resource_id
+        FROM table_join_locus_over_time_free_type
+        WHERE FIND_IN_SET(t3_value_resource_id, (
             SELECT GROUP_CONCAT(ID SEPARATOR ',') AS All_List
             FROM (
                      SELECT ID FROM LocusOverTimeRelationships WHERE ID IN (${ids})
@@ -604,18 +588,9 @@ function composeLocusOverTime(queries, ids, type, filter, locusOverTimeRelations
 
     var q = `
                 CREATE TEMPORARY TABLE IF NOT EXISTS ${filter}_locus_over_time_list_type_name AS
-                SELECT t1.resource_id
-        FROM tabella_unica t1
-                 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
-                 JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
-                 JOIN tabella_unica tipi ON t1.value_resource_id = tipi.resource_id
-                 JOIN tabella_unica tipoiri ON tipi.value_resource_id = tipoiri.resource_id
-                 JOIN tabella_unica nometipo ON tipoiri.value_resource_id = nometipo.resource_id
-    
-        WHERE t1.local_name = 'hasLocusOverTimeData'
-          AND t2.local_name = 'hasRelationshipsWithLociData'
-          AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf')
-          AND FIND_IN_SET(t3.value_resource_id, (
+                SELECT t1_resource_id
+        FROM table_join_locus_over_time_type_name
+        WHERE FIND_IN_SET(t3_value_resource_id, (
             SELECT GROUP_CONCAT(ID SEPARATOR ',') AS All_List
             FROM (
                      SELECT ID FROM LocusOverTimeRelationships WHERE ID IN (${ids})
