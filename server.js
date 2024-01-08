@@ -363,6 +363,7 @@ const metodoDaEseguire = () => {
 };
 
 function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary) {
+    //TODO: scrivere commento per ogni query nell'array!
     const queries = [`START TRANSACTION;`,
 
         `DROP TABLE IF EXISTS table_join_free_type;`,
