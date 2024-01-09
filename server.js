@@ -1791,6 +1791,20 @@ function getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req) {
     }
 }
 
+function removeDuplicatesByProps(array) {
+    var props = ['property_id', 'value', 'local_name'];
+    return array.reduce((accumulator, current) => {
+        const isDuplicate = accumulator.some(item =>
+            props.every(prop => item[prop] === current[prop])
+        );
+
+        if (!isDuplicate) {
+            accumulator.push(current);
+        }
+
+        return accumulator;
+    }, []);
+}
 
 function getFilmFilters(res, req) {
     var con = mysql.createConnection({
@@ -1798,9 +1812,8 @@ function getFilmFilters(res, req) {
     });
 
     //chiedo la lista di film
-    var query = `SELECT distinct property_id, value, p.local_name FROM value v join property p on v.property_id = p.id where property_id in (
-    SELECT distinct p.id FROM property p join vocabulary v on p.vocabulary_id = v.id where p.local_name in ("genre", "titleType", "titleLanguage", "productionCompanyCountry", "productionCompanyName", "dateTypology", "lighting", "cameraAngle", "tilt", "cameraShotType", "hasMatte", "cameraPlacement", "cameraMotion", "colouring", "hasIRIType", "directorName") and (v.prefix = "ficro" or v.prefix = "fiucro" or v.prefix = "filocro")
-    )`;
+    var query = `SELECT distinct resource_id, property_id, value, p.local_name FROM value v join property p on v.property_id = p.id where property_id in (
+    SELECT distinct p.id FROM property p join vocabulary v on p.vocabulary_id = v.id where p.local_name in ("genre", "titleType", "titleLanguage", "productionCompanyCountry", "productionCompanyName", "dateTypology", "lighting", "cameraAngle", "tilt", "cameraShotType", "hasMatte", "cameraPlacement", "cameraMotion", "colouring", "hasIRIType", "directorName", "castMemberName", "otherCastMemberName", "characterName", "presentPersonCastMemberName", "presentPersonCharacterName") and (v.prefix = "ficro" or v.prefix = "fiucro" or v.prefix = "filocro" or v.prefix = "precro"));`;
 
     let filters = new Promise((resolve, reject) => {
         con.query(query, (err, rows) => {
@@ -1819,25 +1832,41 @@ function getFilmFilters(res, req) {
     filters.then(function ({list, res}) {
         console.log("RES NEL THEN");
 
-        var genres = list.filter(obj => obj.local_name === "genre");
-        var titleType = list.filter(obj => obj.local_name === "titleType");
-        var titleLanguage = list.filter(obj => obj.local_name === "titleLanguage");
-        var productionCountry = list.filter(obj => obj.local_name === "productionCompanyCountry");
-        var productionName = list.filter(obj => obj.local_name === "productionCompanyName");
-        var dateTypology = list.filter(obj => obj.local_name === "dateTypology");
-        var locusIRITypes = list.filter(obj => obj.local_name === "hasIRIType");
-        var directorsNames = list.filter(obj => obj.local_name === "directorName");
+        var genres = removeDuplicatesByProps(list.filter(obj => obj.local_name === "genre"));
+        var titleType = removeDuplicatesByProps(list.filter(obj => obj.local_name === "titleType"));
+        var titleLanguage = removeDuplicatesByProps(list.filter(obj => obj.local_name === "titleLanguage"));
+        var productionCountry = removeDuplicatesByProps(list.filter(obj => obj.local_name === "productionCompanyCountry"));
+        var productionName = removeDuplicatesByProps(list.filter(obj => obj.local_name === "productionCompanyName"));
+        var dateTypology = removeDuplicatesByProps(list.filter(obj => obj.local_name === "dateTypology"));
+        var locusIRITypes = removeDuplicatesByProps(list.filter(obj => obj.local_name === "hasIRIType"));
+        var directorsNames = removeDuplicatesByProps(list.filter(obj => obj.local_name === "directorName"));
 
         /*linguaggio e stile*/
-        var lighting = list.filter(obj => obj.local_name === "lighting");
-        var cameraAngle = list.filter(obj => obj.local_name === "cameraAngle");
-        var tilt = list.filter(obj => obj.local_name === "tilt");
-        var cameraShotType = list.filter(obj => obj.local_name === "cameraShotType");
-        var matte = list.filter(obj => obj.local_name === "hasMatte");
-        var pointOfView = list.filter(obj => obj.local_name === "cameraPlacement");
-        var cameraMotion = list.filter(obj => obj.local_name === "cameraMotion");
-        var colouring = list.filter(obj => obj.local_name === "colouring");
+        var lighting = removeDuplicatesByProps(list.filter(obj => obj.local_name === "lighting"));
+        var cameraAngle = removeDuplicatesByProps(list.filter(obj => obj.local_name === "cameraAngle"));
+        var tilt = removeDuplicatesByProps(list.filter(obj => obj.local_name === "tilt"));
+        var cameraShotType = removeDuplicatesByProps(list.filter(obj => obj.local_name === "cameraShotType"));
+        var matte = removeDuplicatesByProps(list.filter(obj => obj.local_name === "hasMatte"));
+        var pointOfView = removeDuplicatesByProps(list.filter(obj => obj.local_name === "cameraPlacement"));
+        var cameraMotion = removeDuplicatesByProps(list.filter(obj => obj.local_name === "cameraMotion"));
+        var colouring = removeDuplicatesByProps(list.filter(obj => obj.local_name === "colouring"));
 
+        var presentPersonCastMemberName = removeDuplicatesByProps(list.filter(obj => obj.local_name === "presentPersonCastMemberName"));
+        var presentPersonCharacterName = removeDuplicatesByProps(list.filter(obj => obj.local_name === "presentPersonCharacterName"));
+
+        var castMemberName = list.filter(obj => obj.local_name === "castMemberName");
+        var otherCastMemberName = list.filter(obj => obj.local_name === "otherCastMemberName");
+        var characterName = removeDuplicatesByProps(list.filter(obj => obj.local_name === "characterName"));
+        const filmCast = [];
+
+        castMemberName.forEach(item1 => {
+            const correspondingItems = otherCastMemberName.filter(item2 => item2.resource_id === item1.resource_id);
+
+            if (correspondingItems.length > 0) {
+                const names = correspondingItems.map(item => item.value).join(", ");
+                filmCast.push({ id: item1.resource_id, value: `${item1.value} (${names})` });
+            }
+        });
 
         var result = {
             genres: genres,
@@ -1855,7 +1884,11 @@ function getFilmFilters(res, req) {
             matte: matte,
             pointOfView: pointOfView,
             cameraMotion: cameraMotion,
-            colouring: colouring
+            colouring: colouring,
+            presentPersonCastMemberName: presentPersonCastMemberName,
+            presentPersonCharacterName: presentPersonCharacterName,
+            characterName: characterName,
+            filmCast: filmCast
         }
         //list = list.map(film => film.resource_id);
         //console.log("LISTA IDDDDDD");
