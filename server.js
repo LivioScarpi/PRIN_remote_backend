@@ -3135,7 +3135,40 @@ async function getRapprLuogo(res, req) {
                             // Raggruppa le unità catalografiche per film
                             let catalogoFilm = {};
 
+                            var connectedRapprLuogo = null;
                             unita_catalografiche.forEach(unita => {
+                                connectedRapprLuogo = finalListRapprLuogo.filter(rappr => {
+                                    return rappr["precro:hasLinkedFilmUnitCatalogueRecord"][0]["value_resource_id"] === unita["dcterms:title"][0]["resource_id"]
+                                });
+
+                                if(connectedRapprLuogo.length > 0){
+                                    connectedRapprLuogo = connectedRapprLuogo[0];
+                                }
+
+                                console.log("connectedRapprLuogo");
+                                console.log(connectedRapprLuogo);
+
+
+                                if(body.locusFilters.ucCastMemberName !== null && body.locusFilters.ucCastMemberName !== undefined && body.locusFilters.ucCastMemberName !== ""){
+                                    var castMember = connectedRapprLuogo["precro:hasPresentPersonData"].filter(person => {
+                                        return person["value"][0]["precro:presentPersonCastMemberName"][0]["value"] === body.locusFilters.ucCastMemberName
+                                    });
+                                    castMember = castMember.length > 0 ? castMember[0] : null;
+                                    if(unita.castMembers === undefined){
+                                        unita.castMembers = [];
+                                    }
+                                    unita.castMembers.push(castMember["value"][0]);
+                                }
+
+                                if(body.locusFilters.ucCharacterName !== null && body.locusFilters.ucCharacterName !== undefined && body.locusFilters.ucCharacterName !== ""){
+                                    var characterName = connectedRapprLuogo["precro:hasPresentPersonData"].filter(person => person["value"][0]["precro:presentPersonCharacterName"][0]["value"] === body.locusFilters.ucCharacterName);
+                                    characterName = characterName.length > 0 ? characterName[0] : null;
+                                    if(unita.characters === undefined){
+                                        unita.characters = [];
+                                    }
+                                    unita.characters.push(characterName["value"][0]);
+                                }
+
                                 const {filmId, filmTitle, filmImageUrl} = getFilmInfo(unita);
 
                                 if (!catalogoFilm[filmId]) {
@@ -3156,8 +3189,10 @@ async function getRapprLuogo(res, req) {
 
                             // Altrimenti esegui la logica della post
                             // ...
+                            //return connectedRapprLuogo;
+                            //TODO: rimettere il return sotto
                             return catalogoFilm;
-                            //res.send(catalogoFilm);
+
 
                         }).then(function (catalogoFilm) {
                             console.log("SECONDO THEN OTTENGO CATALOGO FILM");
