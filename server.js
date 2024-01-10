@@ -53,6 +53,7 @@ const cacheMiddleware = (req, res, next) => {
 
         if (cachedResponse) {
             console.log("RISPOSTA IN CACHE");
+            console.log(cachedResponse);
             // Se la risposta è presente nella cache, restituiscila
             return res.send(JSON.parse(cachedResponse));
         } else {
@@ -480,8 +481,6 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
     });
 
 
-
-
     //LocusRelationshipsNew
 
     //Creo la query per locusRelationshipsDictionary
@@ -498,7 +497,7 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
         queryLocusRelationshipsDictionaryNew += `(${chiave}, ${chiave})`;
 
         var CommaAlreadyAdded = false;
-        if(valore.length === 0 && indice < chiavi.length - 1){
+        if (valore.length === 0 && indice < chiavi.length - 1) {
             queryLocusRelationshipsDictionaryNew += ', ';
             CommaAlreadyAdded = true;
         } else {
@@ -509,7 +508,7 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
             }
         }
 
-        if(valore.length > 0){
+        if (valore.length > 0) {
             valore.forEach((val, index) => {
                 queryLocusRelationshipsDictionaryNew += `(${chiave}, ${val})`;
 
@@ -519,7 +518,7 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
             })
         }
 
-        if(!CommaAlreadyAdded && indice < chiavi.length - 1){
+        if (!CommaAlreadyAdded && indice < chiavi.length - 1) {
             queryLocusRelationshipsDictionaryNew += ', ';
         }
         /*if(valore.length === 0 && indice < chiavi.length - 1){
@@ -544,8 +543,6 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
 
     console.log("queryLocusRelationshipsDictionaryNew");
     console.log(queryLocusRelationshipsDictionaryNew);
-
-
 
 
     //Creo la query per locusOverTimeRelationshipsDictionary
@@ -1864,7 +1861,9 @@ function getFilmFilters(res, req) {
 
             if (correspondingItems.length > 0) {
                 const names = correspondingItems.map(item => item.value).join(", ");
-                filmCast.push({ id: item1.resource_id, value: `${item1.value} (${names})` });
+                filmCast.push({id: item1.resource_id, value: `${item1.value} (${names})`});
+            } else {
+                filmCast.push({id: item1.resource_id, value: `${item1.value}`});
             }
         });
 
@@ -2901,265 +2900,273 @@ async function getRapprLuogo(res, req) {
                 if (rapprLuogoFilmFilters.length > 0 && rapprLuogoLocusFilters.length > 0) {
                     //quale film rispetta i filtri
                     var filteredRapprLuogo = rapprLuogoLocusFilters.filter(obj => rapprLuogoFilmFilters.includes(obj.id_film));
+                    console.log("filteredRapprLuogo");
+                    console.log(filteredRapprLuogo);
 
                     var rapprLuogoIDs = filteredRapprLuogo.map(obj => obj.id_rappr_luogo);
                     console.log("rapprLuogoIDs");
                     console.log(rapprLuogoIDs);
 
-                    let prom = new Promise((resolve, reject) => {
-                        console.log("CHIEDO LE RISORSE");
-                        var resources = getResourceFromID(rapprLuogoIDs, null);
-                        resolve(resources);
-                    });
+                    if (rapprLuogoIDs.length > 0) {
 
-                    prom.then(function (resources) {
-                        console.log("HO OTTENUTO LE RISORSE!!");
+                        let prom = new Promise((resolve, reject) => {
+                            console.log("CHIEDO LE RISORSE");
+                            var resources = getResourceFromID(rapprLuogoIDs, null);
+                            resolve(resources);
+                        });
 
-                        if (!Array.isArray(resources)) {
-                            //la risorsa è solo una, quindi mi creo un array con solo lei
-                            resources = [resources];
-                        } // altrimenti: ho già un array di rappr luogo
+                        prom.then(function (resources) {
+                            console.log("HO OTTENUTO LE RISORSE!!");
 
-
-                        //array di rappresentazioni luogo che rispettano il range di ambientazione nel tempo
-                        var rapprLuogoCorrectNarrativeTime = [];
-
-                        //TODO: idea -> guardare separatamente le rappr luogo che rispettano il filtro di data nel luogo di ripresa e di data nel luogo narrativo
-
-                        if (body.locusFilters.narrativeYearRange !== null && body.locusFilters.narrativeYearRange !== undefined &&
-                            body.locusFilters.narrativeYearRange.fromYear.year !== 2999 && body.locusFilters.narrativeYearRange.fromYear.era !== 'a.C.' &&
-                            body.locusFilters.narrativeYearRange.toYear.year !== 2999 && body.locusFilters.narrativeYearRange.toYear.era !== 'd.C.'
-                        ) {
-                            console.log("narrativeYearRange");
-                            console.log(body.locusFilters.narrativeYearRange);
+                            if (!Array.isArray(resources)) {
+                                //la risorsa è solo una, quindi mi creo un array con solo lei
+                                resources = [resources];
+                            } // altrimenti: ho già un array di rappr luogo
 
 
-                            var fromYear = body.locusFilters.narrativeYearRange.fromYear;
-                            /*if(fromYear.era === 'a.C.'){
-                                fromYear.year = -fromYear.year;
-                            }*/
-                            var toYear = body.locusFilters.narrativeYearRange.toYear;
-                            /*if(toYear.era === 'a.C.'){
-                                toYear.year = -toYear.year;
-                            }*/
+                            //array di rappresentazioni luogo che rispettano il range di ambientazione nel tempo
+                            var rapprLuogoCorrectNarrativeTime = [];
+
+                            //TODO: idea -> guardare separatamente le rappr luogo che rispettano il filtro di data nel luogo di ripresa e di data nel luogo narrativo
+
+                            if (body.locusFilters.narrativeYearRange !== null && body.locusFilters.narrativeYearRange !== undefined &&
+                                body.locusFilters.narrativeYearRange.fromYear.year !== 2999 && body.locusFilters.narrativeYearRange.fromYear.era !== 'a.C.' &&
+                                body.locusFilters.narrativeYearRange.toYear.year !== 2999 && body.locusFilters.narrativeYearRange.toYear.era !== 'd.C.'
+                            ) {
+                                console.log("narrativeYearRange");
+                                console.log(body.locusFilters.narrativeYearRange);
 
 
-                            const fromDate = convertToDate(`${fromYear.year} ${fromYear.era}`);
-                            const toDate = convertToDate(`${toYear.year} ${toYear.era}`);
-                            resources.forEach(rappr_luogo => {
-
-                                //console.log(JSON.stringify(rappr_luogo["precro:hasContextualElementsData"]));
-                                //console.log(rappr_luogo["precro:hasContextualElementsData"]);
-
-                                if (rappr_luogo["precro:hasContextualElementsData"]) {
-                                    if (rappr_luogo["precro:hasContextualElementsData"][0]["value"][0] && rappr_luogo["precro:hasContextualElementsData"][0]["value"][0]["precro:narrativeTimeInterval"]) {
-                                        var date = rappr_luogo["precro:hasContextualElementsData"][0]["value"][0]["precro:narrativeTimeInterval"][0]["value"];
-
-                                        console.log("DATA CONTESTO NARRATIVO:");
-                                        console.log(date);
-
-                                        //TEST CON ALTRE DATE
-                                        date = "30 a.C. - 22 a.C. ca. - (Commento)"
+                                var fromYear = body.locusFilters.narrativeYearRange.fromYear;
+                                /*if(fromYear.era === 'a.C.'){
+                                    fromYear.year = -fromYear.year;
+                                }*/
+                                var toYear = body.locusFilters.narrativeYearRange.toYear;
+                                /*if(toYear.era === 'a.C.'){
+                                    toYear.year = -toYear.year;
+                                }*/
 
 
-                                        const regexString = /\b(\d{1,4}\s?(?:a\.C\.|d\.C\.)*)\s*(ca\.|)(?=(?:\s|$))/gi;
+                                const fromDate = convertToDate(`${fromYear.year} ${fromYear.era}`);
+                                const toDate = convertToDate(`${toYear.year} ${toYear.era}`);
+                                resources.forEach(rappr_luogo => {
 
-                                        const matches = date.match(regexString);
+                                    //console.log(JSON.stringify(rappr_luogo["precro:hasContextualElementsData"]));
+                                    //console.log(rappr_luogo["precro:hasContextualElementsData"]);
 
-                                        if (matches) {
-                                            console.log(matches);
-                                            const anni = matches.filter(match => {
-                                                const parsed = parseInt(match);
-                                                return !isNaN(parsed) && parsed >= 0 && parsed <= 9999;
-                                            });
-                                            console.log("Anni:", anni);
+                                    if (rappr_luogo["precro:hasContextualElementsData"]) {
+                                        if (rappr_luogo["precro:hasContextualElementsData"][0]["value"][0] && rappr_luogo["precro:hasContextualElementsData"][0]["value"][0]["precro:narrativeTimeInterval"]) {
+                                            var date = rappr_luogo["precro:hasContextualElementsData"][0]["value"][0]["precro:narrativeTimeInterval"][0]["value"];
 
-                                            // TODO: se l'anno ha un ca. bisogna calcolare un range più ampio
-                                            if (anni.length > 1) {
-                                                console.log("C'è un range di anni");
-                                                var fromYearString = anni[0];
-                                                var toYearString = anni[1];
+                                            console.log("DATA CONTESTO NARRATIVO:");
+                                            console.log(date);
 
-                                                console.log("Dall'anno: ", fromYearString);
-                                                console.log("All'anno: ", toYearString);
+                                            //TEST CON ALTRE DATE
+                                            date = "30 a.C. - 22 a.C. ca. - (Commento)"
 
-                                                const startDate = convertDate(fromYearString);
-                                                const endDate = convertDate(toYearString);
 
-                                                var dates = startDate.concat(endDate);
+                                            const regexString = /\b(\d{1,4}\s?(?:a\.C\.|d\.C\.)*)\s*(ca\.|)(?=(?:\s|$))/gi;
 
-                                                console.log("startDate");
-                                                console.log(startDate);
-                                                console.log("endDate");
-                                                console.log(endDate);
+                                            const matches = date.match(regexString);
 
-                                                console.log("\n\nDATE CONCATENATE IN UN'UNICO ARRAY:");
-                                                console.log(dates);
+                                            if (matches) {
+                                                console.log(matches);
+                                                const anni = matches.filter(match => {
+                                                    const parsed = parseInt(match);
+                                                    return !isNaN(parsed) && parsed >= 0 && parsed <= 9999;
+                                                });
+                                                console.log("Anni:", anni);
 
-                                                console.log("let risultato = arrayDiValori.some(checkCondition);");
-                                                let risultato = dates.some(date => checkDateInRange(date, fromDate, toDate));
-                                                console.log(risultato);
+                                                // TODO: se l'anno ha un ca. bisogna calcolare un range più ampio
+                                                if (anni.length > 1) {
+                                                    console.log("C'è un range di anni");
+                                                    var fromYearString = anni[0];
+                                                    var toYearString = anni[1];
 
-                                                if (risultato) {
-                                                    rapprLuogoCorrectNarrativeTime.push(rappr_luogo);
+                                                    console.log("Dall'anno: ", fromYearString);
+                                                    console.log("All'anno: ", toYearString);
+
+                                                    const startDate = convertDate(fromYearString);
+                                                    const endDate = convertDate(toYearString);
+
+                                                    var dates = startDate.concat(endDate);
+
+                                                    console.log("startDate");
+                                                    console.log(startDate);
+                                                    console.log("endDate");
+                                                    console.log(endDate);
+
+                                                    console.log("\n\nDATE CONCATENATE IN UN'UNICO ARRAY:");
+                                                    console.log(dates);
+
+                                                    console.log("let risultato = arrayDiValori.some(checkCondition);");
+                                                    let risultato = dates.some(date => checkDateInRange(date, fromDate, toDate));
+                                                    console.log(risultato);
+
+                                                    if (risultato) {
+                                                        rapprLuogoCorrectNarrativeTime.push(rappr_luogo);
+                                                    }
+
+                                                } else {
+
+                                                    console.log("C'è solo un anno");
+                                                    var year = anni[0];
+                                                    console.log("Anno: ", year);
+
+                                                    const dates = convertDate(year);
+                                                    let risultato = dates.some(date => checkDateInRange(date, fromDate, toDate));
+
+                                                    console.log(risultato);
+
+                                                    if (risultato) {
+                                                        rapprLuogoCorrectNarrativeTime.push(rappr_luogo);
+                                                    }
+
+
                                                 }
-
                                             } else {
-
-                                                console.log("C'è solo un anno");
-                                                var year = anni[0];
-                                                console.log("Anno: ", year);
-
-                                                const dates = convertDate(year);
-                                                let risultato = dates.some(date => checkDateInRange(date, fromDate, toDate));
-
-                                                console.log(risultato);
-
-                                                if (risultato) {
-                                                    rapprLuogoCorrectNarrativeTime.push(rappr_luogo);
-                                                }
-
-
+                                                console.log("Nessun match trovato.");
                                             }
+
+
                                         } else {
-                                            console.log("Nessun match trovato.");
+                                            //TODO: igonrare questa rappr luogo
                                         }
-
-
                                     } else {
                                         //TODO: igonrare questa rappr luogo
                                     }
-                                } else {
-                                    //TODO: igonrare questa rappr luogo
-                                }
 
-                            });
-                        } else {
-                            //Nessun filtro sul periodo narrativo, quindi non tutte buone
-                            console.log("Nessun filtro sul periodo narrativo, quindi non tutte buone");
-                            rapprLuogoCorrectNarrativeTime = resources;
-                        }
+                                });
+                            } else {
+                                //Nessun filtro sul periodo narrativo, quindi non tutte buone
+                                console.log("Nessun filtro sul periodo narrativo, quindi non tutte buone");
+                                rapprLuogoCorrectNarrativeTime = resources;
+                            }
 
-                        console.log("rapprLuogoCorrectNarrativeTime");
-                        console.log(rapprLuogoCorrectNarrativeTime);
+                            console.log("rapprLuogoCorrectNarrativeTime");
+                            console.log(rapprLuogoCorrectNarrativeTime);
 
 
-                        //TODO: filtrare sulla base della data di ripresa
+                            //TODO: filtrare sulla base della data di ripresa
 
-                        var rapprLuogoCameraPlacementTime = [];
+                            var rapprLuogoCameraPlacementTime = [];
 
-                        if (body.locusFilters.cameraPlacementYearRange !== null && body.locusFilters.cameraPlacementYearRange !== undefined &&
-                            body.locusFilters.cameraPlacementYearRange.fromYear.year !== 2999 && body.locusFilters.cameraPlacementYearRange.fromYear.era !== 'a.C.' &&
-                            body.locusFilters.cameraPlacementYearRange.toYear.year !== 2999 && body.locusFilters.cameraPlacementYearRange.toYear.era !== 'd.C.') {
-                            console.log("cameraPlacementYearRange");
-                            console.log(body.locusFilters.cameraPlacementYearRange);
+                            if (body.locusFilters.cameraPlacementYearRange !== null && body.locusFilters.cameraPlacementYearRange !== undefined &&
+                                body.locusFilters.cameraPlacementYearRange.fromYear.year !== 2999 && body.locusFilters.cameraPlacementYearRange.fromYear.era !== 'a.C.' &&
+                                body.locusFilters.cameraPlacementYearRange.toYear.year !== 2999 && body.locusFilters.cameraPlacementYearRange.toYear.era !== 'd.C.') {
+                                console.log("cameraPlacementYearRange");
+                                console.log(body.locusFilters.cameraPlacementYearRange);
 
 
-                            var fromYear = body.locusFilters.cameraPlacementYearRange.fromYear;
-                            var toYear = body.locusFilters.cameraPlacementYearRange.toYear;
+                                var fromYear = body.locusFilters.cameraPlacementYearRange.fromYear;
+                                var toYear = body.locusFilters.cameraPlacementYearRange.toYear;
 
-                            const fromDate = convertToDate(`${fromYear.year} ${fromYear.era}`);
-                            const toDate = convertToDate(`${toYear.year} ${toYear.era}`);
+                                const fromDate = convertToDate(`${fromYear.year} ${fromYear.era}`);
+                                const toDate = convertToDate(`${toYear.year} ${toYear.era}`);
 
-                            resources.forEach(rappr_luogo => {
-                                if (rappr_luogo["precro:hasPlacesData"]) {
-                                    console.log(JSON.stringify(rappr_luogo["precro:hasPlacesData"][0]["value"][0]));
-                                    if (rappr_luogo["precro:hasPlacesData"][0]["value"][0] && rappr_luogo["precro:hasPlacesData"][0]["value"][0]["precro:shootingDate"]) {
-                                        var date = rappr_luogo["precro:hasPlacesData"][0]["value"][0]["precro:shootingDate"][0]["value"];
+                                resources.forEach(rappr_luogo => {
+                                    if (rappr_luogo["precro:hasPlacesData"]) {
+                                        console.log(JSON.stringify(rappr_luogo["precro:hasPlacesData"][0]["value"][0]));
+                                        if (rappr_luogo["precro:hasPlacesData"][0]["value"][0] && rappr_luogo["precro:hasPlacesData"][0]["value"][0]["precro:shootingDate"]) {
+                                            var date = rappr_luogo["precro:hasPlacesData"][0]["value"][0]["precro:shootingDate"][0]["value"];
 
-                                        console.log("DATA DELLA RIPRESA:");
-                                        console.log(date);
+                                            console.log("DATA DELLA RIPRESA:");
+                                            console.log(date);
 
-                                        const [year, month, day] = date.split('-');
-                                        console.log("ANNO: ", year);
+                                            const [year, month, day] = date.split('-');
+                                            console.log("ANNO: ", year);
 
-                                        const dateObject = convertToDate(`${year} d.C.`);
+                                            const dateObject = convertToDate(`${year} d.C.`);
 
-                                        var risultato = checkDateInRange(dateObject, fromDate, toDate);
+                                            var risultato = checkDateInRange(dateObject, fromDate, toDate);
 
-                                        console.log("RISULTATO");
-                                        console.log(risultato);
+                                            console.log("RISULTATO");
+                                            console.log(risultato);
 
-                                        if (risultato) {
-                                            rapprLuogoCameraPlacementTime.push(rappr_luogo);
+                                            if (risultato) {
+                                                rapprLuogoCameraPlacementTime.push(rappr_luogo);
+                                            }
+
+
+                                        } else {
+                                            //TODO: igonrare questa rappr luogo
                                         }
-
-
                                     } else {
                                         //TODO: igonrare questa rappr luogo
                                     }
-                                } else {
-                                    //TODO: igonrare questa rappr luogo
+
+                                });
+                            } else {
+                                //Nessun filtro sul periodo narrativo, quindi non tutte buone
+                                console.log("rapprLuogoCameraPlacementTime - Nessun filtro sul periodo narrativo, quindi non tutte buone");
+                                rapprLuogoCameraPlacementTime = resources;
+                            }
+
+                            console.log("rapprLuogoCameraPlacementTime");
+                            console.log(rapprLuogoCameraPlacementTime);
+
+                            //TODO: mantenere solo quelle che sono presenti in entrambi gli array
+
+                            //Tengo solo le rappresentazioni luogo che rispettano entrambi i filtri sul tempo
+                            var finalListRapprLuogo = [];
+                            var rapprLuogoCameraPlacementTimeIDs = rapprLuogoCameraPlacementTime.map(obj => obj["dcterms:title"][0]["resource_id"]);
+
+                            console.log("rapprLuogoCameraPlacementTimeIDs");
+                            console.log(rapprLuogoCameraPlacementTimeIDs);
+
+
+                            rapprLuogoCorrectNarrativeTime.forEach(rappr_luogo => {
+                                if (rapprLuogoCameraPlacementTimeIDs.includes(rappr_luogo["dcterms:title"][0]["resource_id"])) {
+                                    finalListRapprLuogo.push(rappr_luogo)
+                                }
+                            });
+
+                            console.log("finalListRapprLuogo");
+                            console.log(finalListRapprLuogo);
+
+                            var unita_catalografiche = [];
+                            finalListRapprLuogo.forEach(rappr_luogo => {
+                                unita_catalografiche.push(rappr_luogo["precro:hasLinkedFilmUnitCatalogueRecord"][0]["value"][0]);
+                            });
+
+                            console.log(unita_catalografiche);
+
+
+                            // Raggruppa le unità catalografiche per film
+                            let catalogoFilm = {};
+
+                            unita_catalografiche.forEach(unita => {
+                                const {filmId, filmTitle, filmImageUrl} = getFilmInfo(unita);
+
+                                if (!catalogoFilm[filmId]) {
+                                    catalogoFilm[filmId] = {
+                                        filmId: filmId,
+                                        filmTitle: filmTitle,
+                                        filmImageUrl: filmImageUrl,
+                                        unita: []
+                                    };
                                 }
 
+                                catalogoFilm[filmId].unita.push(unita);
                             });
-                        } else {
-                            //Nessun filtro sul periodo narrativo, quindi non tutte buone
-                            console.log("rapprLuogoCameraPlacementTime - Nessun filtro sul periodo narrativo, quindi non tutte buone");
-                            rapprLuogoCameraPlacementTime = resources;
-                        }
 
-                        console.log("rapprLuogoCameraPlacementTime");
-                        console.log(rapprLuogoCameraPlacementTime);
+                            // Stampare il catalogo dei film con le unità catalografiche associate
+                            console.log("CATALOGO FILM");
+                            console.log(catalogoFilm);
 
-                        //TODO: mantenere solo quelle che sono presenti in entrambi gli array
+                            // Altrimenti esegui la logica della post
+                            // ...
+                            return catalogoFilm;
+                            //res.send(catalogoFilm);
 
-                        //Tengo solo le rappresentazioni luogo che rispettano entrambi i filtri sul tempo
-                        var finalListRapprLuogo = [];
-                        var rapprLuogoCameraPlacementTimeIDs = rapprLuogoCameraPlacementTime.map(obj => obj["dcterms:title"][0]["resource_id"]);
-
-                        console.log("rapprLuogoCameraPlacementTimeIDs");
-                        console.log(rapprLuogoCameraPlacementTimeIDs);
-
-
-                        rapprLuogoCorrectNarrativeTime.forEach(rappr_luogo => {
-                            if (rapprLuogoCameraPlacementTimeIDs.includes(rappr_luogo["dcterms:title"][0]["resource_id"])) {
-                                finalListRapprLuogo.push(rappr_luogo)
-                            }
+                        }).then(function (catalogoFilm) {
+                            console.log("SECONDO THEN OTTENGO CATALOGO FILM");
+                            res.send(catalogoFilm);
                         });
 
-                        console.log("finalListRapprLuogo");
-                        console.log(finalListRapprLuogo);
-
-                        var unita_catalografiche = [];
-                        finalListRapprLuogo.forEach(rappr_luogo => {
-                            unita_catalografiche.push(rappr_luogo["precro:hasLinkedFilmUnitCatalogueRecord"][0]["value"][0]);
-                        });
-
-                        console.log(unita_catalografiche);
-
-
-                        // Raggruppa le unità catalografiche per film
-                        let catalogoFilm = {};
-
-                        unita_catalografiche.forEach(unita => {
-                            const {filmId, filmTitle, filmImageUrl} = getFilmInfo(unita);
-
-                            if (!catalogoFilm[filmId]) {
-                                catalogoFilm[filmId] = {
-                                    filmId: filmId,
-                                    filmTitle: filmTitle,
-                                    filmImageUrl: filmImageUrl,
-                                    unita: []
-                                };
-                            }
-
-                            catalogoFilm[filmId].unita.push(unita);
-                        });
-
-                        // Stampare il catalogo dei film con le unità catalografiche associate
-                        console.log("CATALOGO FILM");
-                        console.log(catalogoFilm);
-
-                        // Altrimenti esegui la logica della post
-                        // ...
-                        return catalogoFilm;
-                        //res.send(catalogoFilm);
-
-                    }).then(function (catalogoFilm) {
-                        console.log("SECONDO THEN OTTENGO CATALOGO FILM");
-                        res.send(catalogoFilm);
-                    });
+                    } else {
+                        res.send([]);
+                    }
 
 
                 } else if (rapprLuogoFilmFilters.length === 0) {
@@ -3174,7 +3181,6 @@ async function getRapprLuogo(res, req) {
 
             console.log("filteredRapprLuogo FILTRATI PER FILM");
             console.log(filteredRapprLuogo);
-
 
 
         });

@@ -565,30 +565,49 @@ function composeScreenwriter(objectFilters) {
 function composeCastMember(objectFilters) {
     console.log("COMPOSE CAST MEMBER!!");
 
-    var query = `SELECT * FROM
-                    (
-                    SELECT v1.resource_id
-                    FROM value v1
-                    WHERE v1.value_resource_id IN (
-                      SELECT v2.resource_id
-                      FROM value v2
-                      JOIN property p ON v2.property_id = p.id
-                      WHERE
+    var query = `SELECT *
+                FROM (SELECT v1.resource_id
+                FROM value v1 join value v2 on v1.value_resource_id = v2.resource_id
+                              JOIN property p ON v2.property_id = p.id WHERE
                     `;
+
+    var addedCastMemberName = false;
 
     if (objectFilters.filmCastMemberName !== '' && objectFilters.filmCastMemberName !== null) {
         const castMemberName = `
-        (p.local_name = "castMemberName" AND v2.value LIKE "%${objectFilters.filmCastMemberName}%")
+        ((p.local_name = "castMemberName" AND v2.value LIKE "%${objectFilters.filmCastMemberName}%")
         OR
-        (p.local_name = "otherCastMemberName" AND v2.value LIKE "%${objectFilters.filmCastMemberName}%")
-        OR
-        (p.local_name = "characterName" AND v2.value LIKE "%${objectFilters.filmCastMemberName}%")`;
+        (p.local_name = "otherCastMemberName" AND v2.value LIKE "%${objectFilters.filmCastMemberName}%"))`;
 
         query += castMemberName;
+
+        addedCastMemberName = true;
     }
 
-    query += ')) AS film_con_interprete_personaggio';
+    var addedCharacterName = false;
 
+    if (objectFilters.filmCharacterName !== '' && objectFilters.filmCharacterName !== null) {
+
+        if(addedCastMemberName){
+            query += ' OR '
+        }
+        const characterName = `
+        (p.local_name = "characterName" AND v2.value LIKE "%${objectFilters.filmCharacterName}%")`;
+
+        query += characterName;
+
+        addedCharacterName = true;
+    }
+
+    if(addedCastMemberName && addedCharacterName){
+        query += `GROUP BY v1.resource_id
+                    HAVING COUNT(DISTINCT CASE WHEN p.local_name = "castMemberName" THEN v2.value END) > 0
+                        AND COUNT(DISTINCT CASE WHEN p.local_name = "characterName" THEN v2.value END) > 0`;
+    }
+
+    query += ') AS film_con_interprete_personaggio';
+
+    console.log("GUARDA QUAAAA");
     console.log("QUERY");
     console.log(query);
 
@@ -1271,7 +1290,8 @@ function checkScreenwriter(objectFilters) {
 }
 
 function checkCastMember(objectFilters) {
-    return objectFilters.filmCastMemberName !== '' && objectFilters.filmCastMemberName !== null;
+    return (objectFilters.filmCastMemberName !== '' && objectFilters.filmCastMemberName !== null) ||
+        (objectFilters.filmCharacterName !== '' && objectFilters.filmCharacterName !== null);
 }
 
 function checkDate(objectFilters) {
