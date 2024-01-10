@@ -9,24 +9,39 @@ function composeLocusQuery(objectFilters) {
                          JOIN property p ON v.property_id = p.id;
                 `;*/
 
-    var query_parts = [false, false, false, false];
+    var query_parts = [false, false, false, false, false];
 
     if (objectFilters.ucCastMemberName !== '' && objectFilters.ucCastMemberName !== null) {
 
 
-        //            --Seleziona le Rappresentazioni luogo che hanno una certa persona presente (si guarda sia il campo interprete sia il campo personaggio)
+        //Seleziona le Rappresentazioni luogo che hanno una certa persona presente (si guarda sia il campo interprete)
         const titleTextFilmTitle = `
-            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPresentPersonData" and t2.local_name IN ("presentPersonCastMemberName", "presentPersonCharacterName") and t2.value LIKE "%${objectFilters.ucCastMemberName}%"
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPresentPersonData" and t2.local_name IN ("presentPersonCastMemberName") and t2.value LIKE "%${objectFilters.ucCastMemberName}%"
             \n`;
 
         query += titleTextFilmTitle;
         query_parts[0] = true;
     }
 
+    if (objectFilters.ucCharacterName !== '' && objectFilters.ucCharacterName !== null) {
+
+        if (query_parts[0]) {
+            query += '\n INTERSECT \n'
+        }
+
+        //Seleziona le Rappresentazioni luogo che hanno una certa persona presente (si guarda il campo personaggio)
+        const titleTextFilmTitle = `
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPresentPersonData" and t2.local_name IN ("presentPersonCharacterName") and t2.value LIKE "%${objectFilters.ucCharacterName}%"
+            \n`;
+
+        query += titleTextFilmTitle;
+        query_parts[1] = true;
+    }
+
     //Altre entità mostrate
     if (objectFilters.otherEntitiesType !== '' && objectFilters.otherEntitiesType !== null) {
 
-        if (query_parts[0]) {
+        if (query_parts[0] || query_parts[1]) {
             query += '\n INTERSECT \n'
         }
 
@@ -40,13 +55,13 @@ function composeLocusQuery(objectFilters) {
                 ) as otherEntitiesType\n`;
 
         query += otherEntities;
-        query_parts[1] = true;
+        query_parts[2] = true;
     }
 
 
     if (objectFilters.cameraPlacementLocusInRegionIDs.length > 0) {
 
-        if (query_parts[0] || query_parts[1]) {
+        if (query_parts[0] || query_parts[1] || query_parts[2]) {
             query += '\n INTERSECT \n'
         }
 
@@ -81,12 +96,12 @@ function composeLocusQuery(objectFilters) {
 
         query += cameraPlacement;
 
-        query_parts[2] = true;
+        query_parts[3] = true;
     }
 
     if (objectFilters.narrativeLocusInRegionIDs.length > 0) {
 
-        if (query_parts[0] || query_parts[1] || query_parts[2]) {
+        if (query_parts[0] || query_parts[1] || query_parts[2] || query_parts[3]) {
             query += '\n INTERSECT \n'
         }
 
@@ -140,10 +155,13 @@ function composeLocusQuery(objectFilters) {
 
         query += narrativePlace;
 
-        query_parts[3] = true;
+        query_parts[4] = true;
     }
 
     query += ") as p6);"
+
+    console.log("GUARDA COMPOSE LOCUS QUERY");
+    console.log(query);
 
     return query;
 }
