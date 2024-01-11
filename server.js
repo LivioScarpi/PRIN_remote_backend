@@ -12,6 +12,10 @@ const {parse} = require("url");
 const NodeCache = require('node-cache');
 const cache = new NodeCache();
 
+if(process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'development'){
+    throw new Error("Cannot start the server. NODE_ENV must be 'production' if you want to run the production version, or 'development' if you want to run development version");
+}
+
 const production = process.env.NODE_ENV === 'production';
 
 //const production = true;
@@ -3169,6 +3173,9 @@ async function getRapprLuogo(res, req) {
                                     unita.characters.push(characterName["value"][0]);
                                 }
 
+                                unita["precro:hasPlacesData"] = connectedRapprLuogo["precro:hasPlacesData"];
+                                unita["precro:description"] = connectedRapprLuogo["precro:description"];
+
                                 const {filmId, filmTitle, filmImageUrl} = getFilmInfo(unita);
 
                                 if (!catalogoFilm[filmId]) {
@@ -3196,7 +3203,15 @@ async function getRapprLuogo(res, req) {
 
                         }).then(function (catalogoFilm) {
                             console.log("SECONDO THEN OTTENGO CATALOGO FILM");
-                            res.send(catalogoFilm);
+
+
+                            var catalogoFilmArray = Object.keys(catalogoFilm).map(key => {
+                                return catalogoFilm[key];
+                            })
+
+                            res.send(catalogoFilmArray);
+
+                            //res.send(catalogoFilm);
                         });
 
                     } else {
