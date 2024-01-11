@@ -3176,13 +3176,14 @@ async function getRapprLuogo(res, req) {
                                 unita["precro:hasPlacesData"] = connectedRapprLuogo["precro:hasPlacesData"];
                                 unita["precro:description"] = connectedRapprLuogo["precro:description"];
 
-                                const {filmId, filmTitle, filmImageUrl} = getFilmInfo(unita);
+                                const {filmId, filmTitle, filmImageUrl, genres} = getFilmInfo(unita);
 
                                 if (!catalogoFilm[filmId]) {
                                     catalogoFilm[filmId] = {
                                         filmId: filmId,
                                         filmTitle: filmTitle,
                                         filmImageUrl: filmImageUrl,
+                                        genres: genres,
                                         unita: []
                                     };
                                 }
@@ -3248,10 +3249,17 @@ function getFilmInfo(unita) {
         filmImageUrl = imageData[0]["value"][0]["ficro:caption"][0]["media_link"];
     }
 
+    console.log("FILM INFO");
+    console.log(unita["fiucro:hasLinkedFilmCopyCatalogueRecord"][0]["value"][0]["ficocro:hasLinkedFilmCatalogueRecord"][0]["value"][0]);
+
+    var genres = unita["fiucro:hasLinkedFilmCopyCatalogueRecord"][0]["value"][0]["ficocro:hasLinkedFilmCatalogueRecord"][0]["value"][0]["ficro:hasTypologyData"];
+    console.log("GENRES");
+    console.log(genres);
     return {
         filmId: filmInfo.resource_id,
         filmTitle: filmInfo.value,
         filmImageUrl: filmImageUrl,
+        genres: genres,
     };
 }
 
