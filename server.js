@@ -111,8 +111,17 @@ app.get("/server/get_all_films_db", express.json(), cacheMiddleware, (req, res) 
     getAllFilmsDB(res);
 });
 
+app.get("/server/get_all_films_homepage_db", express.json(), cacheMiddleware, (req, res) => {
+    getAllFilmsHomepageDB(res);
+});
+
 app.get("/server/get_all_locus_db", express.json(), cacheMiddleware, (req, res) => {
     getAllLocusDB(res);
+});
+
+
+app.get("/server/get_all_locus_homepage_db", express.json(), cacheMiddleware, (req, res) => {
+    getAllLocusHomepageDB(res);
 });
 
 app.get("/server/get_schede_av_of_film", express.json(), cacheMiddleware, (req, res) => {
@@ -1097,6 +1106,192 @@ function getAllLocusDB(res) {
 
     return getResourcesFromClassName("LocusCatalogueRecord", con, res);
 }
+
+function getAllFilmsHomepageDB(res) {
+    var con = mysql.createConnection({
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+    });
+
+    return getFilmsHomepage("FilmCatalogueRecord", con, res);
+}
+
+function getAllLocusHomepageDB(res) {
+    var con = mysql.createConnection({
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+    });
+
+    return getLocusHomepage("LocusCatalogueRecord", con, res);
+}
+
+function getFilmsHomepage(className, con, res) {
+
+    //chiedo la lista di film
+    var query = `SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="${className}"`;
+
+    let filmsList = new Promise((resolve, reject) => {
+        con.query(query, (err, rows) => {
+            // console.log(rows);
+            if (err) {
+                return reject(err);
+            } else {
+                let list = Object.values(JSON.parse(JSON.stringify(rows)));
+
+                resolve({list, res});
+            }
+        });
+    });
+
+    //chiedo tutti i dati dei film
+    filmsList.then(function ({list, res}) {
+        console.log("RES NEL THEN");
+
+        list = list.map(film => film.object_id);
+        console.log(list);
+
+        // list = list.slice(0, 2);
+
+        if (list.length > 0) {
+
+            var query = `
+    WITH RECURSIVE test as ( 
+        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
+        FROM value as v1 
+        WHERE v1.resource_id=${list.join(" OR v1.resource_id=")
+            }
+    UNION
+    (
+      SELECT
+        v2.resource_id,
+        v2.property_id,
+        v2.value_resource_id,
+        v2.value,
+        v2.uri
+      FROM
+        value as v2
+        INNER JOIN test ON test.value_resource_id = v2.resource_id
+    )
+  )
+  select
+    test.resource_id,
+    test.property_id,
+    test.value_resource_id,
+    test.value,
+    property.local_name as property_name,
+    property.label as property_label,
+    vocabulary.prefix as vocabulary_prefix,
+    r2.local_name,
+    r2.label,
+    m.storage_id as media_link,
+    test.uri as uri_link
+  from
+    test
+    join property on test.property_id = property.id
+    join vocabulary on property.vocabulary_id = vocabulary.id
+    join resource as r1 on test.resource_id = r1.id
+    join resource_class as r2 on r1.resource_class_id = r2.id
+    left join media as m on test.resource_id = m.item_id
+  where property.local_name IN ("title", "hasImageData", "caption", "genre", "hasTypologyData", "hasDirectorData", "directorName");`;
+
+            console.log("QUERY");
+            console.log(query);
+
+            makeInnerQuery(con, res, query, list);
+        } else {
+
+            res.send([]);
+
+            con.end();
+        }
+
+    });
+
+
+};
+
+function getLocusHomepage(className, con, res) {
+
+    //chiedo la lista di film
+    var query = `SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="${className}"`;
+
+    let filmsList = new Promise((resolve, reject) => {
+        con.query(query, (err, rows) => {
+            // console.log(rows);
+            if (err) {
+                return reject(err);
+            } else {
+                let list = Object.values(JSON.parse(JSON.stringify(rows)));
+
+                resolve({list, res});
+            }
+        });
+    });
+
+    //chiedo tutti i dati dei film
+    filmsList.then(function ({list, res}) {
+        console.log("RES NEL THEN");
+
+        list = list.map(film => film.object_id);
+        console.log(list);
+
+        // list = list.slice(0, 2);
+
+        if (list.length > 0) {
+
+            var query = `
+    WITH RECURSIVE test as ( 
+        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
+        FROM value as v1 
+        WHERE v1.resource_id=${list.join(" OR v1.resource_id=")
+            }
+    UNION
+    (
+      SELECT
+        v2.resource_id,
+        v2.property_id,
+        v2.value_resource_id,
+        v2.value,
+        v2.uri
+      FROM
+        value as v2
+        INNER JOIN test ON test.value_resource_id = v2.resource_id
+    )
+  )
+  select
+    test.resource_id,
+    test.property_id,
+    test.value_resource_id,
+    test.value,
+    property.local_name as property_name,
+    property.label as property_label,
+    vocabulary.prefix as vocabulary_prefix,
+    r2.local_name,
+    r2.label,
+    m.storage_id as media_link,
+    test.uri as uri_link
+  from
+    test
+    join property on test.property_id = property.id
+    join vocabulary on property.vocabulary_id = vocabulary.id
+    join resource as r1 on test.resource_id = r1.id
+    join resource_class as r2 on r1.resource_class_id = r2.id
+    left join media as m on test.resource_id = m.item_id
+  where property.local_name IN ("title", "hasBasicCharacterizationData", "realityStatus",  "name", "description", "hasImageData", "hasMapReferenceData", "mapReferenceTextualData", "mapReferenceIRI", "hasTypeData", "hasIRITypeData", "type", "hasIRIType", "typeName");`;
+
+            console.log("QUERY");
+            console.log(query);
+
+            makeInnerQuery(con, res, query, list);
+        } else {
+
+            res.send([]);
+
+            con.end();
+        }
+
+    });
+
+
+};
 
 function getResourcesFromClassName(className, con, res) {
 
@@ -2209,7 +2404,7 @@ async function searchFilm(res, req, filters = null) {
         //se ho filters allora non devo tornare i film come oggetti, ma solo tutti gli id, quindi devo implementare una query che ritorni tutti gli id di film e chiamarla
         if (filters === null) {
             console.log("CHIAMO getAllFilmsDB");
-            getAllFilmsDB(res);
+            getAllFilmsHomepageDB(res);
         } else {
             console.log("CHIAMO getAllFilmsIDsDB");
             return getAllFilmsIDsDB(res);
@@ -2404,7 +2599,8 @@ async function searchFilm(res, req, filters = null) {
                                 join vocabulary on property.vocabulary_id = vocabulary.id
                                 join resource as r1 on test.resource_id = r1.id
                                 join resource_class as r2 on r1.resource_class_id = r2.id
-                                left join media as m on test.resource_id = m.item_id;
+                                left join media as m on test.resource_id = m.item_id
+                                where property.local_name IN ("title", "hasImageData", "caption", "genre", "hasTypologyData", "hasDirectorData", "directorName");
                                       `;
 
                     makeInnerQuery(con, res, query, list);
@@ -3178,6 +3374,14 @@ async function getRapprLuogo(res, req) {
 
                                 const {filmId, filmTitle, filmImageUrl, genres} = getFilmInfo(unita);
 
+                                // Rimuovo chiavi che non mi servono
+                                delete unita["fiucro:hasSelectedScreenshot"];
+                                delete unita["fiucro:hasLinkedFilmCopyCatalogueRecord"];
+                                delete unita["fiucro:hasFilmUnitDurationData"];
+                                delete unita["fiucro:hasCompositionalAspectsData"];
+                                delete unita["cro:notes"];
+
+
                                 if (!catalogoFilm[filmId]) {
                                     catalogoFilm[filmId] = {
                                         filmId: filmId,
@@ -3192,8 +3396,8 @@ async function getRapprLuogo(res, req) {
                             });
 
                             // Stampare il catalogo dei film con le unità catalografiche associate
-                            console.log("CATALOGO FILM");
-                            console.log(catalogoFilm);
+                            //console.log("CATALOGO FILM");
+                            //console.log(catalogoFilm);
 
                             // Altrimenti esegui la logica della post
                             // ...
