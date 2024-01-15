@@ -3369,8 +3369,37 @@ async function getRapprLuogo(res, req) {
                                     unita.characters.push(characterName["value"][0]);
                                 }
 
-                                unita["precro:hasPlacesData"] = connectedRapprLuogo["precro:hasPlacesData"];
+                                //unita["precro:hasPlacesData"] = connectedRapprLuogo["precro:hasPlacesData"];
                                 unita["precro:description"] = connectedRapprLuogo["precro:description"];
+
+                                if(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement']){
+                                    console.log("sono in camera placement");
+                                    unita["cameraPlacement"] = [];
+                                    connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'][0]['value'].forEach(cameraPlacement => {
+                                        console.log("camera plcement corrente");
+                                        console.log(cameraPlacement);
+                                        unita["cameraPlacement"].push({
+                                            "resource_id": cameraPlacement['dcterms:title'][0]['resource_id'],
+                                            "dcterms:title": cameraPlacement['dcterms:title'][0]['value']
+                                        });
+                                    });
+                                }
+
+                                if(connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject']){
+                                    unita["displayedObject"] = {
+                                        "resource_id": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value'][0]['dcterms:title'][0]['resource_id'],
+                                        "dcterms:title": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value'][0]['dcterms:title'][0]['value']
+                                    }
+                                }
+
+                                if(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace']){
+                                    unita["narrativePlace"] = {
+                                        "resource_id": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['resource_id'],
+                                        "dcterms:title": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['value']
+                                    }
+                                }
+
+
 
                                 const {filmId, filmTitle, filmImageUrl, genres} = getFilmInfo(unita);
 
