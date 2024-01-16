@@ -8,16 +8,21 @@
 // Importa osmtogeojson utilizzando require
 const osmtogeojson = require("osmtogeojson");
 
+const turf = require("@turf/turf");
+const turfFunctions = { ...turf };
+
 // Importa funzioni specifiche da @turf/turf utilizzando require
-const {
+/*const {
     intersect,
     booleanWithin,
     booleanContains,
     booleanPointInPolygon,
     booleanCrosses,
+    lineString,
+    bbox,
     polygon,
     lineOverlap
-} = require("@turf/turf");
+} = require("@turf/turf");*/
 
 const axios = require('axios');
 const express = require("express");
@@ -42,7 +47,7 @@ const app = express();
 const cors = require("cors");
 
 // Imposta il limite della dimensione del corpo della richiesta a 50 MB
-app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.json({limit: '50mb'}));
 
 const portNumber = production ? 3004 : 3003;
 const dbname = production ? "omekas_production_db" : "omekas_db";
@@ -2388,7 +2393,7 @@ function makeInnerQuery(con, res, query, list, returnToClient = true) {
         });
 
         console.log("DEVO TORNARE GLI OGGETTI");
-        if(returnToClient) {
+        if (returnToClient) {
             console.log("RETURN TO CLIENT TRUE QUINDI LI MANDO AL CLIENT");
             res.send(objectListFinal);
         } else {
@@ -2399,7 +2404,7 @@ function makeInnerQuery(con, res, query, list, returnToClient = true) {
     });
 
     prom.catch(function (err) {
-        if(returnToClient) {
+        if (returnToClient) {
             res.writeHead(200, {"Content-Type": "text"});
             res.end("Si è verificato un errore nella richiesta");
         } else {
@@ -2971,143 +2976,150 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
             console.log("narrativeLocusInRegionIDs");
             console.log(narrativeLocusInRegionIDs);
 
-            var query = locusFunctions.composeLocusQuery(body);
+            if (cameraPlacementLocusInRegionIDs.length === 0 || narrativeLocusInRegionIDs.length === 0) {
+                console.log("NESSUN LUOGO TROVATO");
+                resolve([]);
+            } else {
 
-            console.log("QUERY");
-            console.log(query);
+                //var query = locusFunctions.composeLocusQuery(body, cameraPlacementLocusInRegionIDs, narrativeLocusInRegionIDs);
 
-            var con = mysql.createConnection({
-                host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
-            });
+                //console.log("QUERY");
+                //console.log(query);
 
-            var queries = [`START TRANSACTION`,
+                var con = mysql.createConnection({
+                    host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+                });
 
-                `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
-        SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
-        FROM value v
-         JOIN property p ON v.property_id = p.id;`, // Aggiungi altre query qui
-            ];
+                var queries = [`START TRANSACTION`,
 
-            //Qua devo aggiungere le query intermedie
+                    `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+                    SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
+                    FROM value v
+                     JOIN property p ON v.property_id = p.id;`, // Aggiungi altre query qui
+                            ];
 
-            if (body.cameraPlacementLocusInRegionIDs.length > 0) {
-                queries = locusFunctions.composeLocusRelationships(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusRelationshipsDictionary);
-                queries = locusFunctions.composeLocusOverTime(queries, body.cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusOverTimeRelationshipsDictionary);
-            }
+                //Qua devo aggiungere le query intermedie
 
-            if (body.narrativeLocusInRegionIDs.length > 0) {
-                queries = locusFunctions.composeLocusRelationships(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusRelationshipsDictionary);
-                queries = locusFunctions.composeLocusOverTime(queries, body.narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusOverTimeRelationshipsDictionary);
-            }
-
-
-            //Aggiungere query di select
-            var q = locusFunctions.composeLocusQuery(body);
-
-            console.log("STAMPO Q!!!");
-            console.log(q);
-
-            queries.push(q);
-            queries.push(`SELECT t.resource_id as id_rappr_luogo, t1.resource_id as id_unita_catalografica, t2.resource_id as id_copia_film, t2.value_resource_id as id_film FROM rappr_luogo JOIN tabella_unica t ON rappr_luogo.resource_id = t.resource_id JOIN tabella_unica t1 ON t.value_resource_id = t1.resource_id JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t.local_name = "hasLinkedFilmUnitCatalogueRecord" AND t1.local_name = "hasLinkedFilmCopyCatalogueRecord" AND t2.local_name = "hasLinkedFilmCatalogueRecord";;`);
-
-            /*
-
-            `DROP TEMPORARY TABLE IF EXISTS camera_locus_list_free_type;`,
-                        `DROP TEMPORARY TABLE IF EXISTS camera_locus_relationships_free_type;`,
-                        `DROP TEMPORARY TABLE IF EXISTS camera_locus_list_type_name;`,
-                        `DROP TEMPORARY TABLE IF EXISTS camera_locus_relationships_type_name;`,
-                        `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_list_free_type;`,
-                        `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_free_type;`,
-                        `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_list_type_name;`,
-                        `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_type_name;`,
-
-                        `DROP TEMPORARY TABLE IF EXISTS narrative_locus_list_free_type;`,
-                        `DROP TEMPORARY TABLE IF EXISTS narrative_locus_relationships_free_type;`,
-                        `DROP TEMPORARY TABLE IF EXISTS narrative_locus_list_type_name;`,
-                        `DROP TEMPORARY TABLE IF EXISTS narrative_locus_relationships_type_name;`,
-                        `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_list_free_type;`,
-                        `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_free_type;`,
-                        `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_list_type_name;`,
-                        `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_type_name;`,
-
-                        `DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
-             */
-            queries.push(`COMMIT;`);
-
-            var indexResults = queries.length - 2;
-
-
-            console.log("\n\n\n\n\n\nARRAY DI QUERIES");
-            queries.forEach(q => {
-                console.log(q);
-                console.log("\n");
-            })
-            console.log("\n\n\n\n\n\n");
-
-
-            var promise = new Promise((resolve, reject) => {
-
-                var results = []; // Array per salvare i risultati della terza query
-
-                function executeBatchQueries(queries, index = 0) {
-                    if (index < queries.length) {
-                        const query = queries[index];
-                        con.query(query, (error, queryResults) => {
-                            console.log("\n\n\nORA ESEGUO LA SEGUENTE QUERY: \n\n\n");
-                            console.log(query);
-                            if (error) {
-                                con.rollback(() => {
-                                    console.log("STO ESEGUENDO LA SEGUENTE QUERY: \n\n\n");
-                                    console.log(query);
-
-                                    console.log("\n\n\n");
-                                    console.error('Errore nell\'esecuzione della query:', error);
-                                    con.end();
-                                });
-                            } else {
-                                console.log('Query eseguita con successo:', query);
-                                if (index === indexResults) { // Verifica se questa è la terza query (l'indice 2)
-                                    console.log('Risultati della terza query:', queryResults);
-
-
-                                    //results = {locusType: locusType, locusTypeName: locusTypeName, otherEntitiesType: otherEntitiesType, otherEntitiesTypeName: otherEntitiesTypeName, season: season, weather: weather, partOfDay: partOfDay};
-                                    results = queryResults;
-                                }
-                            }
-                            executeBatchQueries(queries, index + 1);
-                        });
-                    } else {
-                        // Chiudi la connessione quando tutte le query sono state eseguite
-                        con.end();
-                        // Restituisci i risultati della terza query al frontend
-                        console.log('Risultati finali da restituire al frontend:', results);
-
-                        if (filters === null) {
-                            res.writeHead(200, {"Content-Type": "application/json"});
-                            res.end(JSON.stringify(results));
-                        } else {
-                            console.log("Torno i risultati alla promessa");
-                            resolve(results);
-                        }
-
-
-                    }
+                if (cameraPlacementLocusInRegionIDs.length > 0) {
+                    queries = locusFunctions.composeLocusRelationships(queries, cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusRelationshipsDictionary);
+                    queries = locusFunctions.composeLocusOverTime(queries, cameraPlacementLocusInRegionIDs, body.cameraPlacementPlaceType, "camera", locusOverTimeRelationshipsDictionary);
                 }
 
-                executeBatchQueries(queries);
-            });
+                if (narrativeLocusInRegionIDs.length > 0) {
+                    queries = locusFunctions.composeLocusRelationships(queries, narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusRelationshipsDictionary);
+                    queries = locusFunctions.composeLocusOverTime(queries, narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusOverTimeRelationshipsDictionary);
+                }
 
-            promise.then((results) => {
-                // Gestisci i risultati ottenuti
-                console.log('Risultati ottenuti:', results);
-                // Esegui qui le operazioni desiderate con i risultati
 
-                resolve(results);
-            })
-                .catch((error) => {
-                    // Gestisci gli errori se si verificano durante l'esecuzione di prova()
-                    console.error('Errore durante l\'esecuzione di prova:', error);
+                //Aggiungere query di select
+                var q = locusFunctions.composeLocusQuery(body, cameraPlacementLocusInRegionIDs, narrativeLocusInRegionIDs);
+
+                console.log("STAMPO Q!!!");
+                console.log(q);
+
+                queries.push(q);
+                queries.push(`SELECT t.resource_id as id_rappr_luogo, t1.resource_id as id_unita_catalografica, t2.resource_id as id_copia_film, t2.value_resource_id as id_film FROM rappr_luogo JOIN tabella_unica t ON rappr_luogo.resource_id = t.resource_id JOIN tabella_unica t1 ON t.value_resource_id = t1.resource_id JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t.local_name = "hasLinkedFilmUnitCatalogueRecord" AND t1.local_name = "hasLinkedFilmCopyCatalogueRecord" AND t2.local_name = "hasLinkedFilmCatalogueRecord";;`);
+
+                /*
+
+                `DROP TEMPORARY TABLE IF EXISTS camera_locus_list_free_type;`,
+                            `DROP TEMPORARY TABLE IF EXISTS camera_locus_relationships_free_type;`,
+                            `DROP TEMPORARY TABLE IF EXISTS camera_locus_list_type_name;`,
+                            `DROP TEMPORARY TABLE IF EXISTS camera_locus_relationships_type_name;`,
+                            `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_list_free_type;`,
+                            `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_free_type;`,
+                            `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_list_type_name;`,
+                            `DROP TEMPORARY TABLE IF EXISTS camera_locus_over_time_type_name;`,
+
+                            `DROP TEMPORARY TABLE IF EXISTS narrative_locus_list_free_type;`,
+                            `DROP TEMPORARY TABLE IF EXISTS narrative_locus_relationships_free_type;`,
+                            `DROP TEMPORARY TABLE IF EXISTS narrative_locus_list_type_name;`,
+                            `DROP TEMPORARY TABLE IF EXISTS narrative_locus_relationships_type_name;`,
+                            `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_list_free_type;`,
+                            `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_free_type;`,
+                            `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_list_type_name;`,
+                            `DROP TEMPORARY TABLE IF EXISTS narrative_locus_over_time_type_name;`,
+
+                            `DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
+                 */
+                queries.push(`COMMIT;`);
+
+                var indexResults = queries.length - 2;
+
+
+                console.log("\n\n\n\n\n\nARRAY DI QUERIES");
+                queries.forEach(q => {
+                    console.log(q);
+                    console.log("\n");
+                })
+                console.log("\n\n\n\n\n\n");
+
+
+                var promise = new Promise((resolve, reject) => {
+
+                    var results = []; // Array per salvare i risultati della terza query
+
+                    function executeBatchQueries(queries, index = 0) {
+                        if (index < queries.length) {
+                            const query = queries[index];
+                            con.query(query, (error, queryResults) => {
+                                console.log("\n\n\nORA ESEGUO LA SEGUENTE QUERY: \n\n\n");
+                                console.log(query);
+                                if (error) {
+                                    con.rollback(() => {
+                                        console.log("STO ESEGUENDO LA SEGUENTE QUERY: \n\n\n");
+                                        console.log(query);
+
+                                        console.log("\n\n\n");
+                                        console.error('Errore nell\'esecuzione della query:', error);
+                                        con.end();
+                                    });
+                                } else {
+                                    console.log('Query eseguita con successo:', query);
+                                    if (index === indexResults) { // Verifica se questa è la terza query (l'indice 2)
+                                        console.log('Risultati della terza query:', queryResults);
+
+
+                                        //results = {locusType: locusType, locusTypeName: locusTypeName, otherEntitiesType: otherEntitiesType, otherEntitiesTypeName: otherEntitiesTypeName, season: season, weather: weather, partOfDay: partOfDay};
+                                        results = queryResults;
+                                    }
+                                }
+                                executeBatchQueries(queries, index + 1);
+                            });
+                        } else {
+                            // Chiudi la connessione quando tutte le query sono state eseguite
+                            con.end();
+                            // Restituisci i risultati della terza query al frontend
+                            console.log('Risultati finali da restituire al frontend:', results);
+
+                            if (filters === null) {
+                                res.writeHead(200, {"Content-Type": "application/json"});
+                                res.end(JSON.stringify(results));
+                            } else {
+                                console.log("Torno i risultati alla promessa");
+                                resolve(results);
+                            }
+
+
+                        }
+                    }
+
+                    executeBatchQueries(queries);
                 });
+
+                promise.then((results) => {
+                    // Gestisci i risultati ottenuti
+                    console.log('Risultati ottenuti:', results);
+                    // Esegui qui le operazioni desiderate con i risultati
+
+                    resolve(results);
+                })
+                    .catch((error) => {
+                        // Gestisci gli errori se si verificano durante l'esecuzione di prova()
+                        console.error('Errore durante l\'esecuzione di prova:', error);
+                    });
+
+            }
 
         });
     })
@@ -3125,22 +3137,25 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
     var noLocusInRegionNarrative = false;
     var narrativeLocusEmpty = false;
     if (drawnAreaGeoJSON !== "" || realPlacePolygon !== "") {
-        console.log("drawnAreaGeoJSON");
+        /*console.log("drawnAreaGeoJSON");
         console.log(drawnAreaGeoJSON);
 
         console.log("store.filmFilters.luogoNarrativo.realPlaceGeoJSON");
         console.log(realPlacePolygon);
 
+         */
+
         var geojsonObject = null;
         if (drawnAreaGeoJSON !== "") {
             //TODO: implement
-            console.log("GEOJSON luogo disegnato a mano");
-            console.log(drawnAreaGeoJSON);
+            //console.log("GEOJSON luogo disegnato a mano");
+            //console.log(drawnAreaGeoJSON);
             geojsonObject = drawnAreaGeoJSON;
         } else if (realPlacePolygon !== "") {
             geojsonObject = JSON.parse(realPlacePolygon);
         }
 
+        /*
         console.log("PRENDO I LOCUS");
         console.log(locus);
 
@@ -3148,9 +3163,9 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
         console.log(geojsonObject);
 
 
-        console.log("\n\n\n\nFACCIO I LUOGHI NARRATIVI");
+        console.log("\n\n\n\nFACCIO I LUOGHI NARRATIVI");*/
         for (const loc of locus) {
-            console.log("\n\n\n\nNUOVO LOCUS");
+            //console.log("\n\n\n\nNUOVO LOCUS");
             if (loc["filocro:hasMapReferenceData"]) {
                 if (loc["filocro:hasMapReferenceData"][0]["value"][0]["filocro:mapReferenceTextualData"]) {
                     if (loc["filocro:hasMapReferenceData"][0]["value"][0]["filocro:mapReferenceTextualData"][0]["value"]) {
@@ -3159,321 +3174,333 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                         var currentLocusGeoJSON = {};
 
                         console.log(`${type} - CONTROLLO IL LOCUS: ` + loc["dcterms:title"][0]["resource_id"]);
-                        console.log(json);
+                        //console.log(json);
 
 
+                        try {
+                            //console.log("SOSTITUISCO");
+                            //console.log(json.replace(/\/'/g, '\"'));
+                            jsonObject = JSON.parse(json.replace(/\/'/g, '\"'));
+                            //console.log("1 - JSON OBJECT");
+                            //console.log(jsonObject);
+                        } catch (err) {
+                            //console.log("ERRORE NEL PRIMO TRY")
+                            //console.log(err);
 
                             try {
-                                console.log("SOSTITUISCO");
-                                console.log(json.replace(/\/'/g, '\"'));
-                                jsonObject = JSON.parse(json.replace(/\/'/g, '\"'));
-                                console.log("1 - JSON OBJECT");
-                                console.log(jsonObject);
+                                //console.log("SOSTITUISCO NEL SECONDO TRY");
+                                //console.log(json.replace(/'/g, '\"'));
+                                jsonObject = JSON.parse(json.replace(/'/g, '\"'));
+                                //console.log("2 - JSON OBJECT");
+                                //console.log(jsonObject);
                             } catch (err) {
-                                console.log("ERRORE NEL PRIMO TRY")
-                                console.log(err);
+                                //console.log("ERRORE NEL SECONDO TRY")
+                                //console.log(err);
 
-                                try {
-                                    console.log("SOSTITUISCO NEL SECONDO TRY");
-                                    console.log(json.replace(/'/g, '\"'));
-                                    jsonObject = JSON.parse(json.replace(/'/g, '\"'));
-                                    console.log("2 - JSON OBJECT");
-                                    console.log(jsonObject);
-                                } catch (err) {
-                                    console.log("ERRORE NEL SECONDO TRY")
-                                    console.log(err);
+                                continue;
 
-                                    continue;
+                                // Pattern per trovare i valori di 'osm_type' e 'osm_id'
+                                const patternOsmType = /\/'osm_type\/': \/\'([^']*)\/\'/;
+                                const patternOsmId = /\/'osm_id\/': ([0-9]+)/;
 
-                                    // Pattern per trovare i valori di 'osm_type' e 'osm_id'
-                                    const patternOsmType = /\/'osm_type\/': \/\'([^']*)\/\'/;
-                                    const patternOsmId = /\/'osm_id\/': ([0-9]+)/;
+                                // Trova i valori usando le espressioni regolari
+                                const matchOsmType = json.match(patternOsmType);
+                                const matchOsmId = json.match(patternOsmId);
 
-                                    // Trova i valori usando le espressioni regolari
-                                    const matchOsmType = json.match(patternOsmType);
-                                    const matchOsmId = json.match(patternOsmId);
+                                /*console.log("matchOsmType");
+                                console.log(matchOsmType[1]);
+                                console.log("matchOsmId");
+                                console.log(matchOsmId[1]);
 
-                                    console.log("matchOsmType");
-                                    console.log(matchOsmType[1]);
-                                    console.log("matchOsmId");
-                                    console.log(matchOsmId[1]);
+                                 */
 
-                                    var type = "";
-                                    if (matchOsmType[1] === "relation") {
-                                        type = "rel";
-                                    } else if (matchOsmType[1] === "way") {
-                                        type = "way";
-                                    } else if (matchOsmType[1] === "node") {
-                                        type = "node";
-                                    }
+                                var type = "";
+                                if (matchOsmType[1] === "relation") {
+                                    type = "rel";
+                                } else if (matchOsmType[1] === "way") {
+                                    type = "way";
+                                } else if (matchOsmType[1] === "node") {
+                                    type = "node";
+                                }
 
-                                    var overpassQuery = `
+                                var overpassQuery = `
                   [out:json];${type}(${matchOsmId[1]}); out geom;
                 `;
 
-                                    console.log("OVERPASS QUERY");
-                                    console.log(overpassQuery);
+                                console.log("OVERPASS QUERY");
+                                console.log(overpassQuery);
 
-                                    var response = await getGeoJSON_OSM(overpassQuery);//await axios.post('https://overpass-api.de/api/interpreter', overpassQuery);
+                                var response = await getGeoJSON_OSM(overpassQuery);//await axios.post('https://overpass-api.de/api/interpreter', overpassQuery);
 
-                                    if (response === null) {
-                                        // Passa al ciclo successivo se la risposta è null (timeout)
-                                        console.log('Passa al prossimo ciclo...');
-                                        continue;
-                                    }
-
-                                    const geojsonTEST = osmtogeojson(response.data);
-
-                                    currentLocusGeoJSON = geojsonTEST.features.find(f => f.id.includes(matchOsmId[1]));
-
-                                    console.log("currentLocusGeoJSON");
-                                    console.log(currentLocusGeoJSON);
+                                if (response === null) {
+                                    // Passa al ciclo successivo se la risposta è null (timeout)
+                                    console.log('Passa al prossimo ciclo...');
+                                    continue;
                                 }
+
+                                const geojsonTEST = osmtogeojson(response.data);
+
+                                currentLocusGeoJSON = geojsonTEST.features.find(f => f.id.includes(matchOsmId[1]));
+
+                                //console.log("currentLocusGeoJSON");
+                                //console.log(currentLocusGeoJSON);
                             }
+                        }
 
 
-                            console.log("JSON OBJECT");
-                            console.log(jsonObject);
+                        /*
+                        console.log("JSON OBJECT");
+                        console.log(jsonObject);
 
-                            console.log("currentLocusGeoJSON");
-                            console.log(JSON.stringify(currentLocusGeoJSON));
+                        console.log("currentLocusGeoJSON");
+                        console.log(JSON.stringify(currentLocusGeoJSON));
 
-                            if (JSON.stringify(currentLocusGeoJSON) === "{}") {
-                                console.log("narrative - currentLocusGeoJSON è vuoto");
-                                if (jsonObject.gjFeaturePoly === undefined || jsonObject.gjFeaturePoly === null) {
-                                    const boundingbox = jsonObject.boundingbox.map(parseFloat); // Converte le stringhe in numeri
+                         */
 
-                                    var bbox = [boundingbox[0], boundingbox[2], boundingbox[1], boundingbox[3]];
+                        if (JSON.stringify(currentLocusGeoJSON) === "{}") {
+                            //console.log("narrative - currentLocusGeoJSON è vuoto");
+                            if (jsonObject.gjFeaturePoly === undefined || jsonObject.gjFeaturePoly === null) {
+                                const boundingbox = jsonObject.boundingbox.map(parseFloat); // Converte le stringhe in numeri
 
-                                    console.log("BBOX");
-                                    console.log(bbox);
+                                var bbox = [boundingbox[0], boundingbox[2], boundingbox[1], boundingbox[3]];
 
-                                    // Estrai le coordinate dalla bounding box
-                                    const minLon = bbox[1];
-                                    const minLat = bbox[0];
-                                    const maxLon = bbox[3];
-                                    const maxLat = bbox[2];
+                                //console.log("BBOX");
+                                //console.log(bbox);
 
-                                    currentLocusGeoJSON = {
-                                        type: 'Feature',
-                                        geometry: {
-                                            type: 'Polygon',
-                                            coordinates: [
-                                                [
-                                                    [minLon, minLat],
-                                                    [maxLon, minLat],
-                                                    [maxLon, maxLat],
-                                                    [minLon, maxLat],
-                                                    [minLon, minLat] // chiudi il poligono
-                                                ]
+                                // Estrai le coordinate dalla bounding box
+                                const minLon = bbox[1];
+                                const minLat = bbox[0];
+                                const maxLon = bbox[3];
+                                const maxLat = bbox[2];
+
+                                currentLocusGeoJSON = {
+                                    type: 'Feature',
+                                    geometry: {
+                                        type: 'Polygon',
+                                        coordinates: [
+                                            [
+                                                [minLon, minLat],
+                                                [maxLon, minLat],
+                                                [maxLon, maxLat],
+                                                [minLon, maxLat],
+                                                [minLon, minLat] // chiudi il poligono
                                             ]
-                                        },
-                                        properties: {}
-                                    };
-                                } else {
-                                    console.log("ESISTE IL GEOJSON DI OPENSTREETMAP");
-                                    currentLocusGeoJSON = jsonObject.gjFeaturePoly;
-                                }
+                                        ]
+                                    },
+                                    properties: {}
+                                };
+                            } else {
+                                //console.log("ESISTE IL GEOJSON DI OPENSTREETMAP");
+                                currentLocusGeoJSON = jsonObject.gjFeaturePoly;
                             }
+                        }
 
-                            console.log("currentLocusGeoJSON");
-                            console.log(currentLocusGeoJSON);
+                        /*
+                        console.log("currentLocusGeoJSON");
+                        console.log(currentLocusGeoJSON);
 
-                            console.log("geojsonObject");
-                            console.log(JSON.stringify(geojsonObject));
+                        console.log("geojsonObject");
+                        console.log(JSON.stringify(geojsonObject));
 
-                            console.log("currentLocusGeoJSON");
-                            console.log(JSON.stringify(currentLocusGeoJSON));
+                        console.log("currentLocusGeoJSON");
+                        console.log(JSON.stringify(currentLocusGeoJSON));
 
-                            /*
-                            //controllo se i due geojson si intersecano
-                            var intersection = intersect(geojsonObject, currentLocusGeoJSON);
+                         */
 
-                            if (intersection) {
-                              console.log("I due luoghi intersecano");
-                              locusInRegion.push(loc);
-                              locusInRegionIDs.push(loc["dcterms:title"][0]["resource_id"]);
-                            } else {
-                              console.log("NON INTERSECANO");
-                            }*/
+                        /*
+                        //controllo se i due geojson si intersecano
+                        var intersection = intersect(geojsonObject, currentLocusGeoJSON);
 
-                            //controllo se i due geojson si intersecano
-                            console.log("geojsonObject");
-                            console.log(geojsonObject);
-                            console.log("currentLocusGeoJSON");
-                            console.log(currentLocusGeoJSON);
+                        if (intersection) {
+                          console.log("I due luoghi intersecano");
+                          locusInRegion.push(loc);
+                          locusInRegionIDs.push(loc["dcterms:title"][0]["resource_id"]);
+                        } else {
+                          console.log("NON INTERSECANO");
+                        }*/
 
-                            var intersection = null;
+                        //controllo se i due geojson si intersecano
+                        /*console.log("geojsonObject");
+                        console.log(geojsonObject);
+                        console.log("currentLocusGeoJSON");
+                        console.log(currentLocusGeoJSON);*/
 
-                            if (currentLocusGeoJSON.geometry.type === "Point") {
-                                console.log("Il currentLocusGeoJSON è un punto");
-                                intersection = booleanPointInPolygon(currentLocusGeoJSON, geojsonObject);
-                                console.log("INTERSECTION");
-                                console.log(intersection);
-                            } else if (currentLocusGeoJSON.geometry.type === "LineString") {
-                                //Distinguere se il geojsonObject è un polygon o un multipolygon
-                                console.log("Il currentLocusGeoJSON è una linea");
+                        var intersection = null;
 
-                                if (geojsonObject.geometry.type === "Polygon") {
-                                    console.log("il geojsonObject è un polygon");
-                                    intersection = booleanCrosses(currentLocusGeoJSON, geojsonObject);
-                                    console.log("INTERSECTION");
-                                    console.log(intersection);
-                                } else if (geojsonObject.geometry.type === "MultiPolygon") {
-                                    console.log("il geojsonObject è un multi-polygon");
+                        if (currentLocusGeoJSON.geometry.type === "Point") {
+                            console.log("Il currentLocusGeoJSON è un punto");
+                            intersection = turfFunctions.booleanPointInPolygon(currentLocusGeoJSON, geojsonObject);
+                            //console.log("INTERSECTION");
+                            //console.log(intersection);
+                        } else if (currentLocusGeoJSON.geometry.type === "LineString") {
+                            //Distinguere se il geojsonObject è un polygon o un multipolygon
+                            console.log("Il currentLocusGeoJSON è una linea");
 
-                                    var line = turf.lineString(currentLocusGeoJSON.geometry.coordinates);
-                                    var bbox = turf.bbox(line);
-                                    var bboxPolygon = turf.bboxPolygon(bbox);
-                                    console.log("bboxPolygon");
-                                    console.log(bboxPolygon);
+                            if (geojsonObject.geometry.type === "Polygon") {
+                                //console.log("il geojsonObject è un polygon");
+                                intersection = turfFunctions.booleanCrosses(currentLocusGeoJSON, geojsonObject);
+                                //console.log("INTERSECTION");
+                                //console.log(intersection);
+                            } else if (geojsonObject.geometry.type === "MultiPolygon") {
+                                //console.log("il geojsonObject è un multi-polygon");
 
-                                    intersection = intersect(geojsonObject, bboxPolygon);
+                                var line = turfFunctions.lineString(currentLocusGeoJSON.geometry.coordinates);
+                                var boundingbox = turfFunctions.bbox(line);
+                                var bboxPolygon = turfFunctions.bboxPolygon(boundingbox);
+                                //console.log("bboxPolygon");
+                                //console.log(bboxPolygon);
 
-                                    /*
-                                    var doesIntersect = false;
-                                    for (var i = 0; i < geojsonObject.geometry.coordinates.length; i++) {
-                                      var poly = turf.polygon(geojsonObject.geometry.coordinates[i]);
-                                      var line = turf.lineString(currentLocusGeoJSON.geometry.coordinates);
-                                      var bbox = turf.bbox(line);
-                                      var bboxPolygon = turf.bboxPolygon(bbox);
-                                      console.log("bboxPolygon");
-                                      console.log(bboxPolygon);
-                                      console.log("LINE");
-                                      console.log(currentLocusGeoJSON.geometry.coordinates);
-                                      console.log(JSON.stringify(line));
-                                      console.log("POLY");
-                                      console.log(JSON.stringify(poly));
-                                      var overlap = lineOverlap(line, poly);
-                                      console.log("OVERLAP");
-                                      console.log(JSON.stringify(overlap));
-                                      if (overlap.features !== [] && overlap.features.length > 0) {
-                                        console.log("ESISTE UN OVERLAP");
-                                        doesIntersect = true;
-                                        break;
-                                      }
-                                    }
+                                intersection = turfFunctions.intersect(geojsonObject, bboxPolygon);
 
-                                    intersection = doesIntersect;*/
-                                    console.log("INTERSECTION");
-                                    console.log(intersection);
+                                /*
+                                var doesIntersect = false;
+                                for (var i = 0; i < geojsonObject.geometry.coordinates.length; i++) {
+                                  var poly = turfFunctions.polygon(geojsonObject.geometry.coordinates[i]);
+                                  var line = turf.lineString(currentLocusGeoJSON.geometry.coordinates);
+                                  var bbox = turf.bbox(line);
+                                  var bboxPolygon = turf.bboxPolygon(bbox);
+                                  console.log("bboxPolygon");
+                                  console.log(bboxPolygon);
+                                  console.log("LINE");
+                                  console.log(currentLocusGeoJSON.geometry.coordinates);
+                                  console.log(JSON.stringify(line));
+                                  console.log("POLY");
+                                  console.log(JSON.stringify(poly));
+                                  var overlap = lineOverlap(line, poly);
+                                  console.log("OVERLAP");
+                                  console.log(JSON.stringify(overlap));
+                                  if (overlap.features !== [] && overlap.features.length > 0) {
+                                    console.log("ESISTE UN OVERLAP");
+                                    doesIntersect = true;
+                                    break;
+                                  }
                                 }
 
-                            } else {
-                                console.log("Non è un punto");
-                                intersection = intersect(geojsonObject, currentLocusGeoJSON);
+                                intersection = doesIntersect;*/
                                 console.log("INTERSECTION");
                                 console.log(intersection);
                             }
 
-                            var primoContieneSecondo = null;
-                            const mergedCoordinatesGeoJSON = geojsonObject.geometry.coordinates.reduce((acc, coords) => {
+                        } else {
+                            console.log("Non è un punto");
+                            intersection = turfFunctions.intersect(geojsonObject, currentLocusGeoJSON);
+                            console.log("INTERSECTION");
+                            console.log(intersection);
+                        }
+
+                        var primoContieneSecondo = null;
+                        const mergedCoordinatesGeoJSON = geojsonObject.geometry.coordinates.reduce((acc, coords) => {
+                            // Unisci i poligoni interni per ottenere un singolo set di coordinate
+                            return acc.concat(coords);
+                        }, []);
+
+                        // Crea un nuovo GeoJSON Polygon con le coordinate unite
+                        const polygonGeoJSON = {
+                            type: "Polygon",
+                            coordinates: mergedCoordinatesGeoJSON
+                        };
+
+                        if (currentLocusGeoJSON.geometry.type === "Point") {
+                            console.log("CONTROLLO SE UN PUNTO STA IN UN POLIGONO booleanPointInPolygon!");
+                            //console.log(currentLocusGeoJSON.geometry.coordinates);
+                            primoContieneSecondo = turfFunctions.booleanPointInPolygon(currentLocusGeoJSON.geometry, polygonGeoJSON);
+                        } else if (currentLocusGeoJSON.geometry.type === "LineString") {
+                            console.log("CONTROLLO SE UNA LINEA STA IN UN POLIGONO!");
+                            primoContieneSecondo = turfFunctions.booleanContains(polygonGeoJSON, currentLocusGeoJSON);
+                        } else {
+
+                            const mergedCoordinates = currentLocusGeoJSON.geometry.coordinates.reduce((acc, coords) => {
                                 // Unisci i poligoni interni per ottenere un singolo set di coordinate
                                 return acc.concat(coords);
                             }, []);
 
                             // Crea un nuovo GeoJSON Polygon con le coordinate unite
-                            const polygonGeoJSON = {
+                            const polygon = {
                                 type: "Polygon",
-                                coordinates: mergedCoordinatesGeoJSON
+                                coordinates: [mergedCoordinates]
                             };
 
-                            if (currentLocusGeoJSON.geometry.type === "Point") {
-                                console.log("CONTROLLO SE UN PUNTO STA IN UN POLIGONO booleanPointInPolygon!");
-                                console.log(currentLocusGeoJSON.geometry.coordinates);
-                                //TODO: implement me
-                                primoContieneSecondo = booleanPointInPolygon(currentLocusGeoJSON.geometry, polygonGeoJSON);
-                            } else if (currentLocusGeoJSON.geometry.type === "LineString") {
-                                console.log("CONTROLLO SE UNA LINEA STA IN UN POLIGONO!");
-                                //TODO: implement me
-                                primoContieneSecondo = booleanContains(polygonGeoJSON, currentLocusGeoJSON);
-                            } else {
+                            /*
+                            console.log("GEOJSON POLYGON");
+                            console.log(JSON.stringify(polygon));
 
-                                const mergedCoordinates = currentLocusGeoJSON.geometry.coordinates.reduce((acc, coords) => {
-                                    // Unisci i poligoni interni per ottenere un singolo set di coordinate
-                                    return acc.concat(coords);
-                                }, []);
+                            console.log("geojsonObject");
+                            console.log(JSON.stringify(polygonGeoJSON));
 
-                                // Crea un nuovo GeoJSON Polygon con le coordinate unite
-                                const polygon = {
-                                    type: "Polygon",
-                                    coordinates: [mergedCoordinates]
-                                };
+                             */
 
-                                console.log("GEOJSON POLYGON");
-                                console.log(JSON.stringify(polygon));
+                            /*
+                          Stringhe necessarie per capire se sto guardando lo stesso identico GEOJSON
+                          In questo caso primoContieneSecondo sarà per forza true dato che sono identici e quindi non mi agigungerà il luogo alla lista
+                          Supponiamo però di aver selezionato piazza san marco sulla mappa e di avere un luogo nel catalogo che ha lo stesso geojson, io voglio che questo luogo mi venga restituito!
+                          Quindi controllo se i due geojson sono identici, in questo caso aggiungo il luogo alla lista
+                          */
 
-                                console.log("geojsonObject");
-                                console.log(JSON.stringify(polygonGeoJSON));
+                            var mergedCoordinatesString = JSON.stringify(mergedCoordinates);
+                            var mergedCoordinatesGeoJSONString = JSON.stringify(mergedCoordinatesGeoJSON);
 
-                                /*
-                              Stringhe necessarie per capire se sto guardando lo stesso identico GEOJSON
-                              In questo caso primoContieneSecondo sarà per forza true dato che sono identici e quindi non mi agigungerà il luogo alla lista
-                              Supponiamo però di aver selezionato piazza san marco sulla mappa e di avere un luogo nel catalogo che ha lo stesso geojson, io voglio che questo luogo mi venga restituito!
-                              Quindi controllo se i due geojson sono identici, in questo caso aggiungo il luogo alla lista
-                              */
+                            /*
+                            console.log("mergedCoordinatesString");
+                            console.log(mergedCoordinatesString);
 
-                                var mergedCoordinatesString = JSON.stringify(mergedCoordinates);
-                                var mergedCoordinatesGeoJSONString = JSON.stringify(mergedCoordinatesGeoJSON);
+                            console.log("mergedCoordinatesGeoJSONString");
+                            console.log(mergedCoordinatesGeoJSONString);*/
 
-                                console.log("mergedCoordinatesString");
-                                console.log(mergedCoordinatesString);
+                            //primoContieneSecondo = booleanContains(polygon, geojsonObject);
 
-                                console.log("mergedCoordinatesGeoJSONString");
-                                console.log(mergedCoordinatesGeoJSONString);
+                            try {
+                                console.log("entro nel try");
+                                primoContieneSecondo = turfFunctions.booleanContains(polygon, polygonGeoJSON);
+                            } catch (e) {
+                                console.log("entro nel catch, il try non ha funzionato");
+                                console.log(e);
+                                polygonGeoJSON.coordinates = [polygonGeoJSON.coordinates]
+                                primoContieneSecondo = turfFunctions.booleanContains(polygon, polygonGeoJSON);
+                                //TODO: sistemare -> qua ho un errore
+                                //Error: coord must be GeoJSON Point or an Array of numbers
+                            }
+                        }
 
-                                //primoContieneSecondo = booleanContains(polygon, geojsonObject);
+                        // Verifica se il primo luogo contiene il secondo
+                        /*console.log("intersection");
+                        console.log(intersection);
+                        console.log("primoContieneSecondo");
+                        console.log(primoContieneSecondo);*/
+                        if (intersection && !primoContieneSecondo) {
+                            console.log("I due luoghi intersecano");
+                            locusInRegion.push(loc);
+                            locusInRegionIDs.push(loc["dcterms:title"][0]["resource_id"]);
+                        } else {
+                            if (primoContieneSecondo) {
+                                console.log("NON AGGIUNGO IL LUOGO POLYGON PERCHE PRIMO CONTIENE SECONDO")
 
-                                try {
-                                    console.log("entro nel try");
-                                    primoContieneSecondo = booleanContains(polygon, polygonGeoJSON);
-                                } catch (e) {
-                                    console.log("entro nel catch, il try non ha funzionato");
-                                    console.log(e);
-                                    polygonGeoJSON.coordinates = [polygonGeoJSON.coordinates]
-                                    primoContieneSecondo = booleanContains(polygon, polygonGeoJSON);
-                                    //TODO: sistemare -> qua ho un errore
-                                    //Error: coord must be GeoJSON Point or an Array of numbers
+                                if (mergedCoordinatesString === mergedCoordinatesGeoJSONString) {
+                                    console.log("AGGIUNGO IL LUOGO POLYGON PERCHE SONO IDENTICI")
+                                    locusInRegion.push(loc);
+                                    locusInRegionIDs.push(loc["dcterms:title"][0]["resource_id"]);
                                 }
+                            } else {
+                                console.log("NON AGGIUNGO IL LUOGO POLYGON ");
                             }
 
-                            // Verifica se il primo luogo contiene il secondo
-                            console.log("intersection");
-                            console.log(intersection);
-                            console.log("primoContieneSecondo");
-                            console.log(primoContieneSecondo);
-                            if (intersection && !primoContieneSecondo) {
-                                console.log("I due luoghi intersecano");
-                                locusInRegion.push(loc);
-                                locusInRegionIDs.push(loc["dcterms:title"][0]["resource_id"]);
-                            } else {
-                                if (primoContieneSecondo) {
-                                    console.log("NON AGGIUNGO IL LUOGO POLYGON PERCHE PRIMO CONTIENE SECONDO")
-
-                                    if (mergedCoordinatesString === mergedCoordinatesGeoJSONString) {
-                                        console.log("AGGIUNGO IL LUOGO POLYGON PERCHE SONO IDENTICI")
-                                        locusInRegion.push(loc);
-                                        locusInRegionIDs.push(loc["dcterms:title"][0]["resource_id"]);
-                                    }
-                                } else {
-                                    console.log("NON AGGIUNGO IL LUOGO POLYGON ");
-                                }
-
-                            }
+                        }
                     }
                 }
             }
         }
 
+        /*
         console.log("NARRATIVE LOCUS IN REGION");
         console.log(locusInRegion);
         console.log(locusInRegionIDs);
+        *
+         */
 
         if (locusInRegionIDs.length === 0) {
             noLocusInRegionNarrative = true;
         }
     } else if (schedaLocusName !== '' && schedaLocusName !== null && schedaLocusName !== undefined) {
-        console.log("LUGOO SELEZIONATO");
+        console.log("LUOGO SELEZIONATO DAL CATALOGO");
         console.log(schedaLocusName);
         locusInRegionIDs.push(schedaLocusName);
     } else {
@@ -3484,7 +3511,7 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
 
         narrativeLocusEmpty = true;
     }
-    
+
     return locusInRegionIDs;
 }
 

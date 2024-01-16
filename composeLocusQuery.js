@@ -1,4 +1,4 @@
-function composeLocusQuery(objectFilters) {
+function composeLocusQuery(objectFilters, cameraPlacementLocusInRegionIDs, narrativeLocusInRegionIDs) {
     console.log("COMPOSE FILM TITLE!!");
 
     var query = "CREATE TEMPORARY TABLE rappr_luogo AS( SELECT * FROM (";
@@ -59,7 +59,7 @@ function composeLocusQuery(objectFilters) {
     }
 
 
-    if (objectFilters.cameraPlacementLocusInRegionIDs.length > 0) {
+    if (cameraPlacementLocusInRegionIDs.length > 0) {
 
         if (query_parts[0] || query_parts[1] || query_parts[2]) {
             query += '\n INTERSECT \n'
@@ -99,7 +99,7 @@ function composeLocusQuery(objectFilters) {
         query_parts[3] = true;
     }
 
-    if (objectFilters.narrativeLocusInRegionIDs.length > 0) {
+    if (narrativeLocusInRegionIDs.length > 0) {
 
         if (query_parts[0] || query_parts[1] || query_parts[2] || query_parts[3]) {
             query += '\n INTERSECT \n'
