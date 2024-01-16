@@ -1,5 +1,5 @@
 function composeLocusQuery(objectFilters, cameraPlacementLocusInRegionIDs, narrativeLocusInRegionIDs) {
-    console.log("COMPOSE FILM TITLE!!");
+    console.log("COMPOSE LOCUS QUERY!!");
 
     var query = "CREATE TEMPORARY TABLE rappr_luogo AS( SELECT * FROM (";
     /*

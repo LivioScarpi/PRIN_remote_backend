@@ -1297,7 +1297,7 @@ function getLocusHomepage(className, con, res, sendToClient = true) {
     join resource as r1 on test.resource_id = r1.id
     join resource_class as r2 on r1.resource_class_id = r2.id
     left join media as m on test.resource_id = m.item_id
-  where property.local_name IN ("title", "hasBasicCharacterizationData", "realityStatus",  "name", "description", "hasImageData", "hasMapReferenceData", "mapReferenceTextualData", "mapReferenceIRI", "hasTypeData", "hasIRITypeData", "type", "hasIRIType", "typeName");`;
+  where property.local_name IN ("title", "hasBasicCharacterizationData", "realityStatus",  "name", "description", "hasImageData", "hasTypeData", "hasIRITypeData", "type", "hasIRIType", "typeName");`;
 
             console.log("QUERY");
             console.log(query);
@@ -2969,8 +2969,8 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
             var cameraPlacementLocusInRegionIDs = [];
             var narrativeLocusInRegionIDs = [];
 
-            cameraPlacementLocusInRegionIDs = await getLocusInRegionIDs(locus, body.luogoDiRipresaDrawnAreaGeoJSON, body.luogoDiRipresaRealPlacePolygon, body.schedaLocusName, "CAMERA PLACEMENT");
-            narrativeLocusInRegionIDs = await getLocusInRegionIDs(locus, body.luogoNarrativoDrawnAreaGeoJSON, body.luogoNarrativoRealPlacePolygon, body.schedaLocusName, "NARRATIVE");
+            cameraPlacementLocusInRegionIDs = await getLocusInRegionIDs(locus, body.luogoDiRipresaDrawnAreaGeoJSON, body.luogoDiRipresaRealPlacePolygon, body.luogodiRipresaSchedaLocusName, "CAMERA PLACEMENT");
+            narrativeLocusInRegionIDs = await getLocusInRegionIDs(locus, body.luogoNarrativoDrawnAreaGeoJSON, body.luogoNarrativoRealPlacePolygon, body.luogoNarrativoSchedaLocusName, "NARRATIVE");
             console.log("cameraPlacementLocusInRegionIDs");
             console.log(cameraPlacementLocusInRegionIDs);
             console.log("narrativeLocusInRegionIDs");
