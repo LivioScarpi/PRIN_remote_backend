@@ -1346,7 +1346,7 @@ function getLocusWithMapInfo(className, con, res, sendToClient = true) {
         console.log("LOCUS HOMEPAGE - RES NEL THEN");
 
         list = list.map(film => film.object_id);
-        console.log(list);
+        //console.log(list);
 
         // list = list.slice(0, 2);
 
@@ -2676,6 +2676,7 @@ async function searchFilm(res, req, filters = null) {
         //chiedo tutti i dati dei film
         idsFilms = idsFilms.then(function ({list, res}) {
             console.log("RES NEL THEN");
+            console.log(list);
 
             list = list.map(film => film.resource_id);
             console.log("LISTA IDDDDDD");
@@ -3046,7 +3047,7 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
 
         locusPromise.then(async (locus) => {
             // Gestisci i risultati ottenuti
-            console.log('LOCUS Risultati ottenuti:', locus);
+            //console.log('LOCUS Risultati ottenuti:', locus);
             // Esegui qui le operazioni desiderate con i risultati
 
             if (filters !== null) {
@@ -3817,7 +3818,7 @@ async function getRapprLuogo(res, req) {
                             }
 
                             console.log("rapprLuogoCorrectNarrativeTime");
-                            console.log(rapprLuogoCorrectNarrativeTime);
+                            //console.log(rapprLuogoCorrectNarrativeTime);
 
 
                             //TODO: filtrare sulla base della data di ripresa
@@ -3950,7 +3951,7 @@ async function getRapprLuogo(res, req) {
                                     unita["cameraPlacement"] = [];
                                     connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'][0]['value'].forEach(cameraPlacement => {
                                         console.log("camera plcement corrente");
-                                        console.log(cameraPlacement);
+                                        //console.log(cameraPlacement);
                                         unita["cameraPlacement"].push({
                                             "resource_id": cameraPlacement['dcterms:title'][0]['resource_id'],
                                             "dcterms:title": cameraPlacement['dcterms:title'][0]['value']

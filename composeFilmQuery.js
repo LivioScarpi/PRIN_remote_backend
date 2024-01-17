@@ -430,7 +430,7 @@ function composeCopyTitle(objectFilters) {
     console.log("COMPOSE COPY TITLE!!");
 
     var query = `SELECT * FROM (
-                    SELECT film.value_resource_id FROM 
+                    SELECT film.value_resource_id as resource_id FROM 
                     (
                     SELECT v1.resource_id
                     FROM (
