@@ -1145,6 +1145,14 @@ function getAllLocusHomepageDB(res, sendToClient = true) {
     return getLocusHomepage("LocusCatalogueRecord", con, res, sendToClient);
 }
 
+function getAllLocusWithMapInfoDB(res, sendToClient = true) {
+    var con = mysql.createConnection({
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+    });
+
+    return getLocusWithMapInfo("LocusCatalogueRecord", con, res, sendToClient);
+}
+
 function getFilmsHomepage(className, con, res) {
 
     //chiedo la lista di film
@@ -1298,6 +1306,91 @@ function getLocusHomepage(className, con, res, sendToClient = true) {
     join resource_class as r2 on r1.resource_class_id = r2.id
     left join media as m on test.resource_id = m.item_id
   where property.local_name IN ("title", "hasBasicCharacterizationData", "realityStatus",  "name", "description", "hasImageData", "hasTypeData", "hasIRITypeData", "type", "hasIRIType", "typeName");`;
+
+            console.log("QUERY");
+            console.log(query);
+
+            return makeInnerQuery(con, res, query, list, sendToClient);
+        } else {
+
+            res.send([]);
+
+            con.end();
+        }
+
+    });
+
+
+};
+
+function getLocusWithMapInfo(className, con, res, sendToClient = true) {
+    console.log("HO CHIAMATO GET LOCUS HOMEPAGE: sendToClient -> " + sendToClient);
+    //chiedo la lista di film
+    var query = `SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="${className}"`;
+
+    let filmsList = new Promise((resolve, reject) => {
+        con.query(query, (err, rows) => {
+            // console.log(rows);
+            if (err) {
+                return reject(err);
+            } else {
+                let list = Object.values(JSON.parse(JSON.stringify(rows)));
+
+                resolve({list, res});
+            }
+        });
+    });
+
+    //chiedo tutti i dati dei film
+    return filmsList.then(function ({list, res}) {
+        console.log("LOCUS HOMEPAGE - RES NEL THEN");
+
+        list = list.map(film => film.object_id);
+        console.log(list);
+
+        // list = list.slice(0, 2);
+
+        if (list.length > 0) {
+
+            var query = `
+    WITH RECURSIVE test as ( 
+        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
+        FROM value as v1 
+        WHERE v1.resource_id=${list.join(" OR v1.resource_id=")
+            }
+    UNION
+    (
+      SELECT
+        v2.resource_id,
+        v2.property_id,
+        v2.value_resource_id,
+        v2.value,
+        v2.uri
+      FROM
+        value as v2
+        INNER JOIN test ON test.value_resource_id = v2.resource_id
+    )
+  )
+  select
+    test.resource_id,
+    test.property_id,
+    test.value_resource_id,
+    test.value,
+    property.local_name as property_name,
+    property.label as property_label,
+    vocabulary.prefix as vocabulary_prefix,
+    r2.local_name,
+    r2.label,
+    m.storage_id as media_link,
+    test.uri as uri_link
+  from
+    test
+    join property on test.property_id = property.id
+    join vocabulary on property.vocabulary_id = vocabulary.id
+    join resource as r1 on test.resource_id = r1.id
+    join resource_class as r2 on r1.resource_class_id = r2.id
+    left join media as m on test.resource_id = m.item_id
+  where property.local_name IN ("title", "hasBasicCharacterizationData", "realityStatus",  "name", "description", "hasImageData", "hasTypeData", "hasIRITypeData", "type", "hasIRIType", "typeName", "hasMapReferenceData", "mapReferenceIRI", "mapReferenceTextualData");`;
 
             console.log("QUERY");
             console.log(query);
@@ -2946,7 +3039,7 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
 
         var locusPromise = new Promise(async (resolve, reject) => {
             console.log("CHIEDO I LUOGHI PER POI CALCOLARE LE RAPPR LUOGO");
-            var l = await getAllLocusHomepageDB(res, false);
+            var l = await getAllLocusWithMapInfoDB(res, false);
             console.log(l);
             resolve(l);
         });
@@ -3136,7 +3229,8 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
     var locusInRegionIDs = [];
     var noLocusInRegionNarrative = false;
     var narrativeLocusEmpty = false;
-    if (drawnAreaGeoJSON !== "" || realPlacePolygon !== "") {
+    if ((drawnAreaGeoJSON !== "" && drawnAreaGeoJSON !== null) || (realPlacePolygon !== "" && realPlacePolygon !== null)) {
+        console.log("CALCOLO I LUOGHI");
         /*console.log("drawnAreaGeoJSON");
         console.log(drawnAreaGeoJSON);
 
@@ -3146,14 +3240,16 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
          */
 
         var geojsonObject = null;
-        if (drawnAreaGeoJSON !== "") {
+        if (drawnAreaGeoJSON !== "" && drawnAreaGeoJSON !== null) {
             //TODO: implement
             //console.log("GEOJSON luogo disegnato a mano");
             //console.log(drawnAreaGeoJSON);
             geojsonObject = drawnAreaGeoJSON;
-        } else if (realPlacePolygon !== "") {
+        } else if (realPlacePolygon !== "" && realPlacePolygon !== null) {
             geojsonObject = JSON.parse(realPlacePolygon);
         }
+
+        console.log("PRENDO I LOCUS");
 
         /*
         console.log("PRENDO I LOCUS");
@@ -3165,10 +3261,13 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
 
         console.log("\n\n\n\nFACCIO I LUOGHI NARRATIVI");*/
         for (const loc of locus) {
-            //console.log("\n\n\n\nNUOVO LOCUS");
+            console.log("\n\n\n\nNUOVO LOCUS");
             if (loc["filocro:hasMapReferenceData"]) {
+                console.log("primo if");
                 if (loc["filocro:hasMapReferenceData"][0]["value"][0]["filocro:mapReferenceTextualData"]) {
+                    console.log("secondo if");
                     if (loc["filocro:hasMapReferenceData"][0]["value"][0]["filocro:mapReferenceTextualData"][0]["value"]) {
+                        console.log("terzo if");
                         var json = loc["filocro:hasMapReferenceData"][0]["value"][0]["filocro:mapReferenceTextualData"][0]["value"];
                         var jsonObject = "";
                         var currentLocusGeoJSON = {};
