@@ -67,16 +67,22 @@ function composeLocusQuery(objectFilters, cameraPlacementLocusInRegionIDs, narra
 
         const cameraPlacement = `SELECT *
                    FROM (
-            SELECT * FROM (SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM camera_locus_list_free_type)
+            SELECT * FROM (
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM camera_locus_list_free_type)
             UNION
             SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasDisplayedObject" and t3.value_resource_id IN (SELECT * FROM camera_locus_list_free_type)
+            UNION
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasRepresentedNarrativePlace" and t3.value_resource_id IN (SELECT * FROM camera_locus_list_free_type)
             ) as p1
             
             UNION
             
-            SELECT * FROM (SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM camera_locus_list_type_name)
+            SELECT * FROM (
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM camera_locus_list_type_name)
             UNION
             SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasDisplayedObject" and t3.value_resource_id IN (SELECT * FROM camera_locus_list_type_name)
+            UNION
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasRepresentedNarrativePlace" and t3.value_resource_id IN (SELECT * FROM camera_locus_list_type_name)
             ) AS p2
             
             UNION
@@ -84,6 +90,8 @@ function composeLocusQuery(objectFilters, cameraPlacementLocusInRegionIDs, narra
             SELECT * FROM (SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM camera_locus_over_time_list_free_type)
             UNION
             SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasDisplayedObject" and t3.value_resource_id IN (SELECT * FROM camera_locus_over_time_list_free_type)
+            UNION
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasRepresentedNarrativePlace" and t3.value_resource_id IN (SELECT * FROM camera_locus_over_time_list_free_type)
             ) AS p3
             
             UNION
@@ -91,6 +99,8 @@ function composeLocusQuery(objectFilters, cameraPlacementLocusInRegionIDs, narra
             SELECT * FROM (SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "placeRepresentationHasCameraPlacement" and t2.value_resource_id IN (SELECT * FROM camera_locus_over_time_list_type_name)
             UNION
             SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasDisplayedObject" and t3.value_resource_id IN (SELECT * FROM camera_locus_over_time_list_type_name)
+            UNION
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.local_name = "placeRepresentationHasRepresentedNarrativePlace" and t3.value_resource_id IN (SELECT * FROM camera_locus_over_time_list_type_name)
             ) as p4) AS test`;
 
 
@@ -107,8 +117,10 @@ function composeLocusQuery(objectFilters, cameraPlacementLocusInRegionIDs, narra
 
         //    --Seleziono le Rappresentazioni luogo che hanno un certo contesto narrativo
         var narrativePlace = `
-    SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id LEFT JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
-    WHERE t1.local_name = "hasPlacesData" and t2.local_name = "hasSinglePlaceRepresentationData" and t3.value_resource_id IN (SELECT * FROM narrative_locus_list_free_type UNION SELECT * FROM narrative_locus_list_type_name UNION SELECT * FROM narrative_locus_over_time_list_free_type UNION SELECT * FROM narrative_locus_over_time_list_type_name)`;
+            SELECT t1.resource_id from tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
+            WHERE t1.local_name = "hasContextualElementsData" and t2.local_name = "placeRepresentationHasContextualNarrativePlace"
+            and t2.value_resource_id IN (SELECT * FROM narrative_locus_list_free_type UNION SELECT * FROM narrative_locus_list_type_name UNION SELECT * FROM narrative_locus_over_time_list_free_type UNION SELECT * FROM narrative_locus_over_time_list_type_name)
+        `;
 
         if ((objectFilters.narrativeSeason !== "" && objectFilters.narrativeSeason !== null && objectFilters.narrativeSeason !== undefined)
             || (objectFilters.narrativeWeather !== "" && objectFilters.narrativeWeather !== null && objectFilters.narrativeWeather !== undefined)
