@@ -182,6 +182,11 @@ app.post("/server/get_locus_of_film", express.json(), cacheMiddleware, (req, res
     getLocusOfFilmByFilmID(res, req);
 });
 
+app.post("/server/get_films_of_locus", express.json(), cacheMiddleware, (req, res) => {
+    getFilmsOfLocusByLocusID(res, req);
+});
+
+
 app.post("/server/get_uc_with_present_person", express.json(), cacheMiddleware, (req, res) => {
     getUCofFilmWithPresentPerson(res, req);
 })
@@ -1235,6 +1240,67 @@ function getFilmsHomepage(className, con, res) {
 
     });
 
+
+};
+
+function getFilmsOfLocus(list, con, res) {
+        console.log("CHIEDO I FILM PER MOSSTRARLI E SONO DENTRO getFilmsOfLocus");
+         console.log(list);
+
+        // list = list.slice(0, 2);
+
+        if (list.length > 0) {
+
+            var query = `
+    WITH RECURSIVE test as ( 
+        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
+        FROM value as v1 
+        WHERE v1.resource_id=${list.join(" OR v1.resource_id=")
+            }
+    UNION
+    (
+      SELECT
+        v2.resource_id,
+        v2.property_id,
+        v2.value_resource_id,
+        v2.value,
+        v2.uri
+      FROM
+        value as v2
+        INNER JOIN test ON test.value_resource_id = v2.resource_id
+    )
+  )
+  select
+    test.resource_id,
+    test.property_id,
+    test.value_resource_id,
+    test.value,
+    property.local_name as property_name,
+    property.label as property_label,
+    vocabulary.prefix as vocabulary_prefix,
+    r2.local_name,
+    r2.label,
+    m.storage_id as media_link,
+    test.uri as uri_link
+  from
+    test
+    join property on test.property_id = property.id
+    join vocabulary on property.vocabulary_id = vocabulary.id
+    join resource as r1 on test.resource_id = r1.id
+    join resource_class as r2 on r1.resource_class_id = r2.id
+    left join media as m on test.resource_id = m.item_id
+  where property.local_name IN ("title", "hasImageData", "caption", "genre", "hasTypologyData", "hasDirectorData", "directorName");`;
+
+            console.log("QUERY");
+            console.log(query);
+
+            makeInnerQuery(con, res, query, list);
+        } else {
+
+            res.send([]);
+
+            con.end();
+        }
 
 };
 
@@ -2758,6 +2824,90 @@ async function searchFilm(res, req, filters = null) {
     }
 }
 
+function getFilmsOfLocusByLocusID(res, req){
+    var body = JSON.parse(JSON.stringify(req.body));
+
+    console.log("OBJECT FILTERS");
+    console.log(body);
+
+    if (!body.locus_id) {
+        console.log("ERROR: missing locus id");
+        res.writeHead(200, {"Content-Type": "application/json"});
+        res.end(JSON.stringify([]));
+    } else {
+        console.log("Locus ID present");
+        var con = mysql.createConnection({
+            host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+        });
+
+
+        const queries = [`START TRANSACTION`,
+
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+            SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id
+            FROM value v
+            JOIN property p ON v.property_id = p.id;`,
+
+            `SELECT av.value_resource_id as film_resource_id from tabella_unica rl1 JOIN tabella_unica uc ON rl1.value_resource_id = uc.resource_id JOIN tabella_unica av ON uc.value_resource_id = av.resource_id where rl1.resource_id IN (
+                SELECT distinct rl.resource_id FROM tabella_unica rl JOIN tabella_unica t2 ON rl.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id where t3.value_resource_id = ${body.locus_id} and t2.local_name="hasSinglePlaceRepresentationData" and t3.local_name IN ("placeRepresentationHasDisplayedObject", "placeRepresentationHasRepresentedNarrativePlace")
+                UNION
+                SELECT distinct rl.resource_id FROM tabella_unica rl JOIN tabella_unica t2 ON rl.value_resource_id = t2.resource_id where t2.value_resource_id = ${body.locus_id} and t2.local_name="placeRepresentationHasCameraPlacement"
+                UNION
+                SELECT distinct rl.resource_id FROM tabella_unica rl JOIN tabella_unica t2 ON rl.value_resource_id = t2.resource_id where t2.value_resource_id = ${body.locus_id} and t2.local_name="placeRepresentationHasContextualNarrativePlace"
+                )
+            and rl1.local_name="hasLinkedFilmUnitCatalogueRecord" and uc.local_name="hasLinkedFilmCopyCatalogueRecord" and av.local_name="hasLinkedFilmCatalogueRecord";`,
+
+            `DROP TEMPORARY TABLE tabella_unica;`,
+
+            `COMMIT;`, // Aggiungi altre query qui
+        ];
+
+        var results = []; // Array per salvare i risultati della terza query
+
+        function executeBatchQueries(queries, index = 0) {
+            if (index < queries.length) {
+                const query = queries[index];
+                con.query(query, (error, queryResults) => {
+                    if (error) {
+                        con.rollback(() => {
+                            console.error('Errore nell\'esecuzione della query:', error);
+                            con.end();
+                        });
+                    } else {
+                        console.log('Query eseguita con successo:', query);
+                        if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
+                            console.log('Risultati della terza query:', queryResults);
+                            results = queryResults;
+                        }
+                    }
+                    executeBatchQueries(queries, index + 1);
+                });
+            } else {
+                // Chiudi la connessione quando tutte le query sono state eseguite
+                //con.end();
+                // Restituisci i risultati della terza query al frontend
+                console.log('Chiedo i film per mostrarli');
+                console.log(results);
+
+                var list = results.map(obj => obj.film_resource_id);
+                console.log(list);
+
+                if(list.length > 0) {
+                    getFilmsOfLocus(list, con, res);
+                } else {
+                    con.end();
+                    res.writeHead(200, {"Content-Type": "application/json"});
+                    res.end(JSON.stringify([]));
+                }
+                //res.writeHead(200, {"Content-Type": "application/json"});
+                //res.end(JSON.stringify(results));
+
+            }
+        }
+
+        executeBatchQueries(queries);
+    }
+}
 
 //TODO: implementare funzione che restituisce i luoghi a partire dal film
 function getLocusOfFilmByFilmID(res, req) {
@@ -3966,10 +4116,17 @@ async function getRapprLuogo(res, req) {
                                     }
                                 }
 
-                                if (connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace']) {
-                                    unita["narrativePlace"] = {
+                                if (connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace']) {
+                                    unita["representedNarrativePlace"] = {
                                         "resource_id": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['resource_id'],
                                         "dcterms:title": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['value']
+                                    }
+                                }
+
+                                if (connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'] && connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace']) {
+                                    unita["contextualNarrativePlace"] = {
+                                        "resource_id": connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]['value'][0]['dcterms:title'][0]['resource_id'],
+                                        "dcterms:title": connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]['value'][0]['dcterms:title'][0]['value']
                                     }
                                 }
 
