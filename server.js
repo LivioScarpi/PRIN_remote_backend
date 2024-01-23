@@ -9,7 +9,7 @@
 const osmtogeojson = require("osmtogeojson");
 
 const turf = require("@turf/turf");
-const turfFunctions = { ...turf };
+const turfFunctions = {...turf};
 
 // Importa funzioni specifiche da @turf/turf utilizzando require
 /*const {
@@ -506,10 +506,17 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
     delete locusRelationshipsDictionary["null"];
 
     let chiavi = Object.keys(locusRelationshipsDictionary);
+    console.log("locusRelationshipsDictionary - ECCO QUA");
+    console.log(JSON.stringify(locusRelationshipsDictionary));
+
+    console.log("locusOverTimeRelationshipsDictionary - chiavi");
+    console.log(JSON.stringify(chiavi));
 
     chiavi.forEach((chiave, indice) => {
 
-        let valore = locusRelationshipsDictionary[chiave];
+        let valore = [...locusRelationshipsDictionary[chiave]];
+        valore.unshift(chiave);
+
         queryLocusRelationshipsDictionary += `(${chiave}, '${valore}')`;
 
         if (indice < chiavi.length - 1) {
@@ -591,7 +598,14 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
     // Rimuovo la chiave null
     delete locusOverTimeRelationshipsDictionary["null"];
 
+    console.log("locusOverTimeRelationshipsDictionary");
+    console.log(JSON.stringify(locusOverTimeRelationshipsDictionary));
+
     let chiaviOverTime = Object.keys(locusOverTimeRelationshipsDictionary);
+
+    console.log("locusOverTimeRelationshipsDictionary - chiaviOverTime");
+    console.log(JSON.stringify(chiaviOverTime));
+
     chiaviOverTime.forEach((chiave, indice) => {
         let valore = locusOverTimeRelationshipsDictionary[chiave];
         queryLocusOverTimeRelationshipsDictionary += `(${chiave}, '${valore}')`;
@@ -603,10 +617,16 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
         }
     });
 
-    queries.push(queryLocusRelationshipsDictionary);
-    queries.push(queryLocusRelationshipsDictionaryNew);
+    if (chiavi.length > 0) {
+        queries.push(queryLocusRelationshipsDictionary);
+        queries.push(queryLocusRelationshipsDictionaryNew);
+    }
 
-    queries.push(queryLocusOverTimeRelationshipsDictionary);
+
+    if (chiaviOverTime.length > 0) {
+        queries.push(queryLocusOverTimeRelationshipsDictionary);
+    }
+
     queries.push("COMMIT;");
 
     console.log(queries);
@@ -1203,14 +1223,14 @@ function getFilmsHomepage(className, con, res) {
 };
 
 function getFilmsOfLocus(list, con, res) {
-        console.log("CHIEDO I FILM PER MOSSTRARLI E SONO DENTRO getFilmsOfLocus");
-         console.log(list);
+    console.log("CHIEDO I FILM PER MOSSTRARLI E SONO DENTRO getFilmsOfLocus");
+    console.log(list);
 
-        // list = list.slice(0, 2);
+    // list = list.slice(0, 2);
 
-        if (list.length > 0) {
+    if (list.length > 0) {
 
-            var query = `
+        var query = `
     WITH RECURSIVE test as ( 
         SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
         FROM value as v1 
@@ -1250,16 +1270,16 @@ function getFilmsOfLocus(list, con, res) {
     left join media as m on test.resource_id = m.item_id
   where property.local_name IN ("title", "hasImageData", "caption", "genre", "hasTypologyData", "hasDirectorData", "directorName");`;
 
-            console.log("QUERY");
-            console.log(query);
+        console.log("QUERY");
+        console.log(query);
 
-            makeInnerQuery(con, res, query, list);
-        } else {
+        makeInnerQuery(con, res, query, list);
+    } else {
 
-            res.send([]);
+        res.send([]);
 
-            con.end();
-        }
+        con.end();
+    }
 
 };
 
@@ -2783,7 +2803,7 @@ async function searchFilm(res, req, filters = null) {
     }
 }
 
-function getFilmsOfLocusByLocusID(res, req){
+function getFilmsOfLocusByLocusID(res, req) {
     var body = JSON.parse(JSON.stringify(req.body));
 
     console.log("OBJECT FILTERS");
@@ -2851,7 +2871,7 @@ function getFilmsOfLocusByLocusID(res, req){
                 var list = results.map(obj => obj.film_resource_id);
                 console.log(list);
 
-                if(list.length > 0) {
+                if (list.length > 0) {
                     getFilmsOfLocus(list, con, res);
                 } else {
                     con.end();
@@ -3199,7 +3219,7 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
                     SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
                     FROM value v
                      JOIN property p ON v.property_id = p.id;`, // Aggiungi altre query qui
-                            ];
+                ];
 
                 //Qua devo aggiungere le query intermedie
 
