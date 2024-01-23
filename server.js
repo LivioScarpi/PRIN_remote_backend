@@ -2819,15 +2819,55 @@ function getFilmsOfLocusByLocusID(res, req) {
             host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
         });
 
+        var query = `SELECT Lista_id_connessi from LocusRelationships WHERE ID=${body.locus_id};`;
 
-        const queries = [`START TRANSACTION`,
+        let locusList = new Promise((resolve, reject) => {
+            con.query(query, (err, rows) => {
+                // console.log(rows);
+                if (err) {
+                    return reject(err);
+                } else {
+                    let list = Object.values(JSON.parse(JSON.stringify(rows)));
 
-            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
-            SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id
-            FROM value v
-            JOIN property p ON v.property_id = p.id;`,
+                    resolve({list, res});
+                }
+            });
+        });
 
-            `SELECT av.value_resource_id as film_resource_id from tabella_unica rl1 JOIN tabella_unica uc ON rl1.value_resource_id = uc.resource_id JOIN tabella_unica av ON uc.value_resource_id = av.resource_id where rl1.resource_id IN (
+        locusList.then(function ({list, res}) {
+            console.log("LOCUS LIST RES NEL THEN");
+
+            list = list[0]["Lista_id_connessi"];
+            console.log(list);
+
+            const queries = [`START TRANSACTION`,
+
+                `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+                    SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id
+                    FROM value v
+                    JOIN property p ON v.property_id = p.id;`,
+
+                `SELECT distinct av.value_resource_id as film_resource_id
+                        FROM tabella_unica rl1
+                        JOIN tabella_unica uc ON rl1.value_resource_id = uc.resource_id
+                        JOIN tabella_unica av ON uc.value_resource_id = av.resource_id
+                        WHERE rl1.local_name = 'hasLinkedFilmUnitCatalogueRecord'
+                        AND uc.local_name = 'hasLinkedFilmCopyCatalogueRecord'
+                        AND av.local_name = 'hasLinkedFilmCatalogueRecord'
+                        AND rl1.resource_id IN (
+                            SELECT t1.resource_id
+                        FROM tabella_unica t1
+                        JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
+                        JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+                        WHERE (t3.value_resource_id IN (${list}) AND t2.local_name = 'hasSinglePlaceRepresentationData'
+                        AND t3.local_name IN ('placeRepresentationHasDisplayedObject', 'placeRepresentationHasRepresentedNarrativePlace'))
+                    OR (t2.value_resource_id IN (${list}) AND t2.local_name = 'placeRepresentationHasCameraPlacement')
+                    OR (t2.value_resource_id IN (${list}) AND t2.local_name = 'placeRepresentationHasContextualNarrativePlace')
+                );`,
+
+                //vecchia query per i film
+                /*
+                `SELECT distinct av.value_resource_id as film_resource_id from tabella_unica rl1 JOIN tabella_unica uc ON rl1.value_resource_id = uc.resource_id JOIN tabella_unica av ON uc.value_resource_id = av.resource_id where rl1.resource_id IN (
                 SELECT distinct rl.resource_id FROM tabella_unica rl JOIN tabella_unica t2 ON rl.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id where t3.value_resource_id = ${body.locus_id} and t2.local_name="hasSinglePlaceRepresentationData" and t3.local_name IN ("placeRepresentationHasDisplayedObject", "placeRepresentationHasRepresentedNarrativePlace")
                 UNION
                 SELECT distinct rl.resource_id FROM tabella_unica rl JOIN tabella_unica t2 ON rl.value_resource_id = t2.resource_id where t2.value_resource_id = ${body.locus_id} and t2.local_name="placeRepresentationHasCameraPlacement"
@@ -2835,56 +2875,58 @@ function getFilmsOfLocusByLocusID(res, req) {
                 SELECT distinct rl.resource_id FROM tabella_unica rl JOIN tabella_unica t2 ON rl.value_resource_id = t2.resource_id where t2.value_resource_id = ${body.locus_id} and t2.local_name="placeRepresentationHasContextualNarrativePlace"
                 )
             and rl1.local_name="hasLinkedFilmUnitCatalogueRecord" and uc.local_name="hasLinkedFilmCopyCatalogueRecord" and av.local_name="hasLinkedFilmCatalogueRecord";`,
+*/
 
-            `DROP TEMPORARY TABLE tabella_unica;`,
+                `DROP TEMPORARY TABLE tabella_unica;`,
 
-            `COMMIT;`, // Aggiungi altre query qui
-        ];
+                `COMMIT;`, // Aggiungi altre query qui
+            ];
 
-        var results = []; // Array per salvare i risultati della terza query
+            var results = []; // Array per salvare i risultati della terza query
 
-        function executeBatchQueries(queries, index = 0) {
-            if (index < queries.length) {
-                const query = queries[index];
-                con.query(query, (error, queryResults) => {
-                    if (error) {
-                        con.rollback(() => {
-                            console.error('Errore nell\'esecuzione della query:', error);
-                            con.end();
-                        });
-                    } else {
-                        console.log('Query eseguita con successo:', query);
-                        if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
-                            console.log('Risultati della terza query:', queryResults);
-                            results = queryResults;
+            function executeBatchQueries(queries, index = 0) {
+                if (index < queries.length) {
+                    const query = queries[index];
+                    con.query(query, (error, queryResults) => {
+                        if (error) {
+                            con.rollback(() => {
+                                console.error('Errore nell\'esecuzione della query:', error);
+                                con.end();
+                            });
+                        } else {
+                            console.log('Query eseguita con successo:', query);
+                            if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
+                                console.log('Risultati della terza query:', queryResults);
+                                results = queryResults;
+                            }
                         }
-                    }
-                    executeBatchQueries(queries, index + 1);
-                });
-            } else {
-                // Chiudi la connessione quando tutte le query sono state eseguite
-                //con.end();
-                // Restituisci i risultati della terza query al frontend
-                console.log('Chiedo i film per mostrarli');
-                console.log(results);
-
-                var list = results.map(obj => obj.film_resource_id);
-                console.log(list);
-
-                if (list.length > 0) {
-                    getFilmsOfLocus(list, con, res);
+                        executeBatchQueries(queries, index + 1);
+                    });
                 } else {
-                    con.end();
-                    res.writeHead(200, {"Content-Type": "application/json"});
-                    res.end(JSON.stringify([]));
+                    // Chiudi la connessione quando tutte le query sono state eseguite
+                    //con.end();
+                    // Restituisci i risultati della terza query al frontend
+                    console.log('Chiedo i film per mostrarli');
+                    console.log(results);
+
+                    var list = results.map(obj => obj.film_resource_id);
+                    console.log(list);
+
+                    if (list.length > 0) {
+                        getFilmsOfLocus(list, con, res);
+                    } else {
+                        con.end();
+                        res.writeHead(200, {"Content-Type": "application/json"});
+                        res.end(JSON.stringify([]));
+                    }
+                    //res.writeHead(200, {"Content-Type": "application/json"});
+                    //res.end(JSON.stringify(results));
+
                 }
-                //res.writeHead(200, {"Content-Type": "application/json"});
-                //res.end(JSON.stringify(results));
-
             }
-        }
 
-        executeBatchQueries(queries);
+            executeBatchQueries(queries);
+        });
     }
 }
 
