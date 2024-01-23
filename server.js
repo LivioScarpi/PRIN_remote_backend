@@ -692,55 +692,38 @@ function getLocusRelationships() {
             SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="LocusCatalogueRecord";
             `,
 
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_grande_join AS (
+                SELECT t1.resource_id,
+                       t1.property_id,
+                       t1.local_name,
+                       t1.value_resource_id,
+                       t1.value,
+                       t2.resource_id                           AS t2_resource_id,
+                       t2.property_id                           AS t2_property_id,
+                       t2.local_name                            AS t2_local_name,
+                       t2.value_resource_id                     AS t2_value_resource_id,
+                       t2.value                                 AS t2_value
+                FROM tabella_unica t1
+                         JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
+                  WHERE t1.local_name = "hasRelationshipsWithLociData"
+                  and t2.local_name IN ('locusLocatedIn', 'locusIsPartOf')
+            );
+            `,
+
             `CREATE TEMPORARY TABLE IF NOT EXISTS locus_relationships_free_type AS
-            WITH RECURSIVE RelationsCTE AS (SELECT t1.resource_id,
-                                                   t1.property_id,
-                                                   t1.local_name,
-                                                   t1.value_resource_id,
-                                                   t1.value,
-                                                   t2.resource_id                           AS t2_resource_id,
-                                                   t2.property_id                           AS t2_property_id,
-                                                   t2.local_name                            AS t2_local_name,
-                                                   t2.value_resource_id                     AS t2_value_resource_id,
-                                                   t2.value                                 AS t2_value
-                                            FROM tabella_unica t1
-                                                     JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
-                                            WHERE t2.value_resource_id IN (SELECT object_id FROM locus)
-                                              and t1.local_name = "hasRelationshipsWithLociData"
-                                              and t2.local_name IN ('locusLocatedIn', 'locusIsPartOf')
-            
-                                            UNION ALL
-            
-                                            SELECT t1.resource_id,
-                                                   t1.property_id,
-                                                   t1.local_name,
-                                                   t1.value_resource_id,
-                                                   t1.value,
-                                                   t2.resource_id                           AS t2_resource_id,
-                                                   t2.property_id                           AS t2_property_id,
-                                                   t2.local_name                            AS t2_local_name,
-                                                   t2.value_resource_id                     AS t2_value_resource_id,
-                                                   t2.value                                 AS t2_value
-            
-                                            FROM tabella_unica t1
-                                                     JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
-                                                     JOIN RelationsCTE r ON r.resource_id = t2.value_resource_id
-            
-                                            WHERE t1.local_name = "hasRelationshipsWithLociData"
-                                              and t2.local_name IN ('locusLocatedIn', 'locusIsPartOf'))
-            SELECT *
-            FROM RelationsCTE;`,
-
-            //`SELECT resource_id, t2_value_resource_id FROM locus_relationships_free_type;`,
-
-            //Versione in cui companiono anche i locus nel tempo
-            /*
-            `SELECT resource_id, t2_value_resource_id FROM locus_relationships_free_type
-            UNION ALL
-            SELECT object_id AS resource_id, NULL AS t2_value_resource_id
-            FROM locus
-            WHERE object_id NOT IN (SELECT resource_id FROM locus_relationships_free_type) AND object_id NOT IN (SELECT t2_value_resource_id FROM locus_relationships_free_type);`,
-            */
+                WITH RECURSIVE RelationsCTE AS (SELECT *
+                                                FROM tabella_grande_join tgj
+                                                  WHERE t2_value_resource_id IN (SELECT object_id FROM locus)
+                
+                                                UNION ALL
+                
+                                                SELECT tgj.*
+                                                FROM tabella_grande_join tgj
+                                                         JOIN RelationsCTE r ON r.resource_id = tgj.value_resource_id
+                                                )
+                SELECT *
+                FROM RelationsCTE;
+            `,
 
             //Questa query fa si che vengano recuperati anche i locus che non hanno nessun a relazione con altri locus, oppure che ce l'hanno, ma con un locus nel tempo e quindi che vengono scartati nella prima riga
             `SELECT resource_id, t2_value_resource_id FROM locus_relationships_free_type WHERE resource_id IN (SELECT object_id FROM locus) AND t2_value_resource_id IN (SELECT object_id FROM locus)
@@ -748,15 +731,9 @@ function getLocusRelationships() {
             SELECT object_id AS resource_id, NULL AS t2_value_resource_id
             FROM locus
             WHERE
-            object_id NOT IN (SELECT resource_id FROM locus_relationships_free_type WHERE resource_id IN (SELECT object_id FROM locus) AND t2_value_resource_id IN (SELECT object_id FROM locus))
-            AND
-            object_id NOT IN (SELECT t2_value_resource_id FROM locus_relationships_free_type WHERE resource_id IN (SELECT object_id FROM locus) AND t2_value_resource_id IN (SELECT object_id FROM locus));`,
-
-            //`DROP TEMPORARY TABLE IF EXISTS locus;`,
-
-            //`DROP TEMPORARY TABLE IF EXISTS locus_relationships_free_type;`,
-
-            //`DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
+                object_id NOT IN (SELECT resource_id FROM locus_relationships_free_type WHERE resource_id IN (SELECT object_id FROM locus) AND t2_value_resource_id IN (SELECT object_id FROM locus))
+              AND
+                object_id NOT IN (SELECT t2_value_resource_id FROM locus_relationships_free_type WHERE resource_id IN (SELECT object_id FROM locus) AND t2_value_resource_id IN (SELECT object_id FROM locus));`,
 
             `COMMIT;`, // Aggiungi altre query qui
         ];
@@ -773,9 +750,10 @@ function getLocusRelationships() {
                             //connection.end();
                         });
                     } else {
-                        if (index === 4) { // Verifica se questa è la terza query (l'indice 2)
+                        console.log("getLocusRelationships - Eseguo la query " + index);
+                        if (index === 5) { // Verifica se questa è la terza query (l'indice 5)
                             let mappedArray = queryResults.map(item => [item.resource_id, item.t2_value_resource_id]);
-                            var dictionary = getDictionary(mappedArray);
+                            var dictionary = getDictionary(mappedArray, "getLocusRelationships");
                             results = dictionary;
                         }
                     }
@@ -808,59 +786,45 @@ function getLocusOverTimeRelationships() {
             SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="LocusCatalogueRecord";
             `,
 
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_grande_join AS (
+                SELECT t1.resource_id, t1.property_id, t1.local_name, t1.value_resource_id, t1.value,
+                       t2.resource_id AS t2_resource_id, t2.property_id AS t2_property_id,
+                       t2.local_name AS t2_local_name, t2.value_resource_id AS t2_value_resource_id, t2.value AS t2_value,
+                       t3.resource_id AS t3_resource_id, t3.property_id AS t3_property_id,
+                       t3.local_name AS t3_local_name, t3.value_resource_id AS t3_value_resource_id, t3.value AS t3_value,
+                       tipi.resource_id AS tipi_resource_id, tipi.property_id AS tipi_property_id,
+                       tipi.local_name AS tipi_local_name, tipi.value_resource_id AS tipi_value_resource_id, tipi.value AS tipi_value,
+                       tipolibero.resource_id AS tipolibero_resource_id, tipolibero.property_id AS tipolibero_property_id,
+                       tipolibero.local_name AS tipolibero_local_name, tipolibero.value_resource_id AS tipolibero_value_resource_id, tipolibero.value AS tipolibero_value
+                FROM tabella_unica t1
+                         JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
+                         JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+                         JOIN tabella_unica tipi ON t1.value_resource_id = tipi.resource_id
+                         JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
+                WHERE t1.local_name = 'hasLocusOverTimeData'
+                  AND t2.local_name = 'hasRelationshipsWithLociData'
+                  AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf')
+            );
+            `,
+
             `CREATE TEMPORARY TABLE IF NOT EXISTS locus_over_time_free_type AS
-            WITH RECURSIVE RelationsCTE AS (
-                SELECT t1.resource_id, t1.property_id, t1.local_name, t1.value_resource_id, t1.value,
-                       t2.resource_id AS t2_resource_id, t2.property_id AS t2_property_id,
-                       t2.local_name AS t2_local_name, t2.value_resource_id AS t2_value_resource_id, t2.value AS t2_value,
-                       t3.resource_id AS t3_resource_id, t3.property_id AS t3_property_id,
-                       t3.local_name AS t3_local_name, t3.value_resource_id AS t3_value_resource_id, t3.value AS t3_value,
-                       tipi.resource_id AS tipi_resource_id, tipi.property_id AS tipi_property_id,
-                       tipi.local_name AS tipi_local_name, tipi.value_resource_id AS tipi_value_resource_id, tipi.value AS tipi_value,
-                       tipolibero.resource_id AS tipolibero_resource_id, tipolibero.property_id AS tipolibero_property_id,
-                       tipolibero.local_name AS tipolibero_local_name, tipolibero.value_resource_id AS tipolibero_value_resource_id, tipolibero.value AS tipolibero_value
-                FROM tabella_unica t1
-                         JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
-                         JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
-                         JOIN tabella_unica tipi ON t1.value_resource_id = tipi.resource_id
-                         JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
-                WHERE t1.local_name = 'hasLocusOverTimeData'
-                  AND t2.local_name = 'hasRelationshipsWithLociData'
-                  AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf')
-                  -- Aggiunta della condizione per la ricorsione
-                  AND t3.value_resource_id IN (SELECT object_id FROM locus)
-            
-                UNION ALL
-            
-                SELECT t1.resource_id, t1.property_id, t1.local_name, t1.value_resource_id, t1.value,
-                       t2.resource_id AS t2_resource_id, t2.property_id AS t2_property_id,
-                       t2.local_name AS t2_local_name, t2.value_resource_id AS t2_value_resource_id, t2.value AS t2_value,
-                       t3.resource_id AS t3_resource_id, t3.property_id AS t3_property_id,
-                       t3.local_name AS t3_local_name, t3.value_resource_id AS t3_value_resource_id, t3.value AS t3_value,
-                       tipi.resource_id AS tipi_resource_id, tipi.property_id AS tipi_property_id,
-                       tipi.local_name AS tipi_local_name, tipi.value_resource_id AS tipi_value_resource_id, tipi.value AS tipi_value,
-                       tipolibero.resource_id AS tipolibero_resource_id, tipolibero.property_id AS tipolibero_property_id,
-                       tipolibero.local_name AS tipolibero_local_name, tipolibero.value_resource_id AS tipolibero_value_resource_id, tipolibero.value AS tipolibero_value
-                FROM tabella_unica t1
-                         JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
-                         JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
-                         JOIN RelationsCTE r ON t3.value_resource_id = r.resource_id
-                         JOIN tabella_unica tipi ON t1.value_resource_id = tipi.resource_id
-                         JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
-                WHERE t1.local_name = 'hasLocusOverTimeData'
-                  AND t2.local_name = 'hasRelationshipsWithLociData'
-                  AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf')
-            )
-            SELECT *
-            FROM RelationsCTE;`,
+                WITH RECURSIVE RelationsCTE AS (
+                    SELECT *
+                    FROM tabella_grande_join tgj
+                    -- Aggiunta della condizione per la ricorsione
+                    WHERE t3_value_resource_id IN (SELECT object_id FROM locus)
+                
+                    UNION ALL
+                
+                    SELECT tgj.*
+                    FROM tabella_grande_join tgj
+                             JOIN RelationsCTE r ON tgj.t3_value_resource_id = r.resource_id
+                )
+                SELECT *
+                FROM RelationsCTE;
+            `,
 
-            `SELECT resource_id, t3_value_resource_id FROM locus_over_time_free_type;`,
-
-            //`DROP TEMPORARY TABLE IF EXISTS locus;`,
-
-            //`DROP TEMPORARY TABLE IF EXISTS locus_over_time_free_type;`,
-
-            //`DROP TEMPORARY TABLE IF EXISTS tabella_unica;`,
+            `SELECT distinct resource_id, t3_value_resource_id FROM locus_over_time_free_type;`,
 
             `COMMIT;`, // Aggiungi altre query qui
         ];
@@ -876,9 +840,11 @@ function getLocusOverTimeRelationships() {
                             console.error('getLocusOverTimeRelationships - Errore nell\'esecuzione della query:', error);
                         });
                     } else {
-                        if (index === 4) { // Verifica se questa è la terza query (l'indice 2)
+                        console.log("getLocusOverTimeRelationships - Eseguo la query " + index);
+
+                        if (index === 5) { // Verifica se questa è la terza query (l'indice 5)
                             let mappedArray = queryResults.map(item => [item.resource_id, item.t3_value_resource_id]);
-                            var dictionary = getDictionary(mappedArray);
+                            var dictionary = getDictionary(mappedArray, "getLocusOverTimeRelationships");
                             results = dictionary;
                         }
                     }
@@ -893,9 +859,24 @@ function getLocusOverTimeRelationships() {
     });
 }
 
-function getDictionary(data) {
-    console.log("\n\n\n\nDATA QUA");
+function getRelatedPlaces(result, place, visited = new Set()) {
+    let related = result[place] || [];
+    visited.add(place);  // Aggiungi il luogo corrente all'insieme di luoghi visitati
+
+    related.forEach(p => {
+        if (!visited.has(p)) {  // Verifica se il luogo non è stato visitato per evitare la ricorsione infinita
+            related = [...new Set([...related, ...getRelatedPlaces(result, p, visited)])];
+        }
+    });
+
+    return related;
+}
+
+
+function getDictionary(data, caller) {
+    console.log("\n\n\n\nDATA QUA -" + caller);
     console.log(data);
+    console.log(JSON.stringify(data));
 
     let result = {};
 
@@ -911,25 +892,13 @@ function getDictionary(data) {
         result[part_of].push(place);
     });
 
-
-    // Funzione per ottenere gli elementi correlati
-    function getRelatedPlaces(place) {
-        let related = result[place] || [];
-        related.forEach(p => {
-            related = [...new Set([...related, ...getRelatedPlaces(p)])];
-        });
-        return related;
-    }
-
-    // Creazione di un array piatto di tutti i valori
-    const allKeys = Array.from(new Set(data.reduce((acc, [a, b]) => acc.concat(a, b), [])));
-
     // Aggiunta degli elementi correlati
     Object.keys(result).forEach(place => {
-        result[place] = [...new Set(getRelatedPlaces(place).filter(p => p !== parseInt(place)))];
+        result[place] = [...new Set(getRelatedPlaces(result, place).filter(p => p !== parseInt(place)))];
     });
 
     // Aggiunta delle chiavi mancanti con liste vuote
+    const allKeys = Array.from(new Set(data.reduce((acc, [a, b]) => acc.concat(a, b), [])));
     allKeys.forEach(key => {
         if (!result[key]) {
             result[key] = [];
@@ -937,16 +906,6 @@ function getDictionary(data) {
     });
 
     return result;
-}
-
-
-// Funzione per ottenere gli elementi correlati
-function getRelatedPlaces(result, place) {
-    let related = result[place] || [];
-    related.forEach(p => {
-        related = [...new Set([...related, ...getRelatedPlaces(p)])];
-    });
-    return related;
 }
 
 
