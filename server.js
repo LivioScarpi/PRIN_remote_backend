@@ -137,11 +137,6 @@ app.get("/server/get_all_films_homepage_db", express.json(), cacheMiddleware, (r
     getAllFilmsHomepageDB(res);
 });
 
-app.get("/server/get_all_locus_db", express.json(), cacheMiddleware, (req, res) => {
-    getAllLocusDB(res);
-});
-
-
 app.get("/server/get_all_locus_homepage_db", express.json(), cacheMiddleware, (req, res) => {
     getAllLocusHomepageDB(res);
 });
@@ -233,104 +228,13 @@ connection.connect(async (err) => {
     try {
         console.log("Ottengo le strutture dati");
         // Ottieni entrambe le strutture dati prima di avviare il server
-        const [locusRelationships, locusOverTimeRelationships] = await Promise.all([getLocusRelationships(), getLocusOverTimeRelationships()]);
+        const [locusRelationships, locusOverTimeRelationships] = await Promise.all([getLocusRelationships(connection), getLocusOverTimeRelationships(connection)]);
 
         console.log("Strutture dati ottenute");
         locusRelationshipsDictionary = locusRelationships;
         locusOverTimeRelationshipsDictionary = locusOverTimeRelationships;
 
-        /*
-        const queries = [`START TRANSACTION`,
-
-            `DROP TABLE IF EXISTS LocusRelationships`,
-
-            `DROP TABLE IF EXISTS LocusOverTimeRelationships`,
-
-            `CREATE TABLE IF NOT EXISTS LocusRelationships (
-                                    ID INT PRIMARY KEY,
-                                    Lista_id_connessi TEXT
-            );`,
-
-            `CREATE TABLE IF NOT EXISTS LocusOverTimeRelationships (
-                                    ID INT PRIMARY KEY,
-                                    Lista_id_connessi TEXT
-            );`,
-        ];
-
-        //Creo la query per locusRelationshipsDictionary
-        var queryLocusRelationshipsDictionary = `INSERT INTO LocusRelationships (ID, Lista_id_connessi) VALUES `;
-
-        // Rimuovo la chiave null
-        delete locusRelationshipsDictionary["null"];
-
-        let chiavi = Object.keys(locusRelationshipsDictionary);
-
-        chiavi.forEach((chiave, indice) => {
-
-            let valore = locusRelationshipsDictionary[chiave];
-            queryLocusRelationshipsDictionary += `(${chiave}, '${valore}')`;
-
-            if (indice < chiavi.length - 1) {
-                queryLocusRelationshipsDictionary += ', ';
-            } else {
-                queryLocusRelationshipsDictionary += ';';
-            }
-
-        });
-
-        //Creo la query per locusOverTimeRelationshipsDictionary
-        var queryLocusOverTimeRelationshipsDictionary = `INSERT INTO LocusOverTimeRelationships (ID, Lista_id_connessi) VALUES `;
-
-        // Rimuovo la chiave null
-        delete locusOverTimeRelationshipsDictionary["null"];
-
-        let chiaviOverTime = Object.keys(locusOverTimeRelationshipsDictionary);
-        chiaviOverTime.forEach((chiave, indice) => {
-            let valore = locusOverTimeRelationshipsDictionary[chiave];
-            queryLocusOverTimeRelationshipsDictionary += `(${chiave}, '${valore}')`;
-
-            if (indice < chiaviOverTime.length - 1) {
-                queryLocusOverTimeRelationshipsDictionary += ', ';
-            } else {
-                queryLocusOverTimeRelationshipsDictionary += ';';
-            }
-        });
-
-        queries.push(queryLocusRelationshipsDictionary);
-        queries.push(queryLocusOverTimeRelationshipsDictionary);
-        queries.push("COMMIT;");
-
-        console.log(queries);
-
-
-        var prom = new Promise((resolve, reject) => {
-
-            function executeBatchQueries(queries, index) {
-                if (index < queries.length) {
-                    const query = queries[index];
-                    connection.query(query, (error, queryResults) => {
-                        if (error) {
-                            connection.rollback(() => {
-                                console.error('getLocusRelationships - Errore nell\'esecuzione della query:', error);
-                                //connection.end();
-                            });
-                        } else {
-                            //Tutto ok
-                            console.log("Query eseguita con successo");
-                        }
-                        executeBatchQueries(queries, index + 1);
-                    });
-                } else {
-                    resolve();
-                }
-            }
-
-            executeBatchQueries(queries, 0);
-
-        });
-        */
-
-        var prom = createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary);
+        var prom = createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary, connection);
 
         prom.then(() => {
             console.log('Promise risolta con successo senza parametri.');
@@ -341,11 +245,20 @@ connection.connect(async (err) => {
 
             // Avvia il server Express solo dopo aver ottenuto entrambe le strutture dati
             const server = app.listen(portNumber, "localhost", () => {
+                connection.end();
+                console.log("Connessione chiusa");
+
                 console.log("Server in ascolto sulla porta " + portNumber);
                 console.log("DB name: " + dbname);
 
+
+
                 // Schedula l'esecuzione del metodo alle 3 di notte (alle 3:00 AM)
                 cron.schedule('0 3 * * *', updateData);
+
+                // Aggiornamento delle strutture dati ogni tot millisecondi (ad esempio ogni 24 ore)
+                //const intervalInMilliseconds = 360000; //1 * 60 * 60 * 1000; // 24 ore
+                //setInterval(updateData, intervalInMilliseconds);
             });
             //server.setTimeout(500000);
             server.timeout = 120000;
@@ -357,38 +270,12 @@ connection.connect(async (err) => {
             //const intervalInMilliseconds = 7 * 60 * 60 * 1000; //1 * 60 * 60 * 1000; // 24 ore
             //setInterval(updateData, intervalInMilliseconds);
 
-
         }).catch((errore) => {
             console.error('Si è verificato un errore:', errore);
         });
-
-
-        ////////////////
-
-
     } catch (error) {
         console.error('Errore durante il recupero delle strutture dati:', error);
     }
-
-    /*
-    try {
-        // Ottieni la mappa dei luoghi prima di avviare il server
-        const initialMap = await getLocusRelationships();
-        console.log('Mappa dei luoghi iniziale:', initialMap);
-
-        locusRelationshipsDictionary = initialMap;
-
-        // Avvia il server Express dopo aver ottenuto la mappa
-        app.listen(portNumber, "localhost", () => {
-            console.log("Listening for requests");
-        });
-
-        // Aggiornamento della mappa dei luoghi ogni tot millisecondi (ad esempio ogni ora)
-        const intervalInMilliseconds = 1 * 60 * 60 * 1000; // 24 ore: 24 * 60 * 60 * 1000
-        setInterval(updateLocusRelationships, intervalInMilliseconds);
-    } catch (error) {
-        console.error('Errore durante l\'ottenimento della mappa dei luoghi:', error);
-    }*/
 });
 
 const metodoDaEseguire = () => {
@@ -403,7 +290,7 @@ const metodoDaEseguire = () => {
     }
 };
 
-function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary) {
+function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary, connection) {
     //TODO: scrivere commento per ogni query nell'array!
     const queries = [`START TRANSACTION;`,
 
@@ -668,14 +555,19 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
 function updateData() {
     console.log("Aggiorno le strutture dati");
 
+    // Configurazione del tuo database
+    const con = mysql.createConnection({
+        user: 'root', host: 'localhost', database: dbname, password: 'omekas_prin_2022', port: 3306, // Porta di default di PostgreSQL
+    });
+
     updatingRelationships = true;
 
-    Promise.all([getLocusRelationships(), getLocusOverTimeRelationships()])
+    Promise.all([getLocusRelationships(con), getLocusOverTimeRelationships(con)])
         .then(([updatedLocusRelationships, updatedLocuOverTimesRelationships]) => {
             locusRelationshipsDictionary = updatedLocusRelationships;
             locusOverTimeRelationshipsDictionary = updatedLocuOverTimesRelationships;
             //console.log('Strutture dati aggiornate:', updatedLocusRelationships, updatedLocuOverTimesRelationships);
-            var prom = createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary);
+            var prom = createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary, con);
 
             prom.then(() => {
                 console.log('Promise risolta con successo senza parametri.');
@@ -688,8 +580,13 @@ function updateData() {
 
                 updatingRelationships = false;
 
+                console.log("Chiudo la connessione dopo updateData");
+                con.end();
+
             }).catch((errore) => {
                 console.error('Si è verificato un errore:', errore);
+                console.log("Chiudo la connessione dopo un errore in updateData");
+                con.end();
             });
 
         })
@@ -699,7 +596,7 @@ function updateData() {
 }
 
 // Funzione per ottenere la mappa dei luoghi ricorsivamente
-function getLocusRelationships() {
+function getLocusRelationships(connection) {
     return new Promise((resolve, reject) => {
         const queries = [`START TRANSACTION`,
 
@@ -712,7 +609,7 @@ function getLocusRelationships() {
             SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="LocusCatalogueRecord";
             `,
 
-            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_grande_join AS (
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_grande_join_locus_relationships AS (
                 SELECT t1.resource_id,
                        t1.property_id,
                        t1.local_name,
@@ -732,13 +629,13 @@ function getLocusRelationships() {
 
             `CREATE TEMPORARY TABLE IF NOT EXISTS locus_relationships_free_type AS
                 WITH RECURSIVE RelationsCTE AS (SELECT *
-                                                FROM tabella_grande_join tgj
+                                                FROM tabella_grande_join_locus_relationships tgj
                                                   WHERE t2_value_resource_id IN (SELECT object_id FROM locus)
                 
                                                 UNION ALL
                 
                                                 SELECT tgj.*
-                                                FROM tabella_grande_join tgj
+                                                FROM tabella_grande_join_locus_relationships tgj
                                                          JOIN RelationsCTE r ON r.resource_id = tgj.value_resource_id
                                                 )
                 SELECT *
@@ -791,7 +688,7 @@ function getLocusRelationships() {
 
 
 // Funzione per ottenere la mappa dei luoghi ricorsivamente
-function getLocusOverTimeRelationships() {
+function getLocusOverTimeRelationships(connection) {
     return new Promise((resolve, reject) => {
 
 
@@ -806,7 +703,7 @@ function getLocusOverTimeRelationships() {
             SELECT r.id as object_id, rc.id as class_id, rc.local_name as class_name, rc.label FROM resource r join resource_class rc on r.resource_class_id=rc.id WHERE rc.local_name="LocusCatalogueRecord";
             `,
 
-            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_grande_join AS (
+            `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_grande_join_locus_over_time AS (
                 SELECT t1.resource_id, t1.property_id, t1.local_name, t1.value_resource_id, t1.value,
                        t2.resource_id AS t2_resource_id, t2.property_id AS t2_property_id,
                        t2.local_name AS t2_local_name, t2.value_resource_id AS t2_value_resource_id, t2.value AS t2_value,
@@ -830,14 +727,14 @@ function getLocusOverTimeRelationships() {
             `CREATE TEMPORARY TABLE IF NOT EXISTS locus_over_time_free_type AS
                 WITH RECURSIVE RelationsCTE AS (
                     SELECT *
-                    FROM tabella_grande_join tgj
+                    FROM tabella_grande_join_locus_over_time tgj
                     -- Aggiunta della condizione per la ricorsione
                     WHERE t3_value_resource_id IN (SELECT object_id FROM locus)
                 
                     UNION ALL
                 
                     SELECT tgj.*
-                    FROM tabella_grande_join tgj
+                    FROM tabella_grande_join_locus_over_time tgj
                              JOIN RelationsCTE r ON tgj.t3_value_resource_id = r.resource_id
                 )
                 SELECT *
@@ -1064,6 +961,7 @@ function getResourceFromID(id, res) {
             objectListFinal = null;
         }
 
+        con.end();
 
         if (res) {
             res.writeHead(200, {"Content-Type": "application/json"});
@@ -1073,10 +971,10 @@ function getResourceFromID(id, res) {
         }
 
 
-        con.end();
     });
 
     return prom.catch(function (err) {
+        con.end();
 
         if (res) {
             res.writeHead(200, {"Content-Type": "text"});
@@ -1085,7 +983,6 @@ function getResourceFromID(id, res) {
             return undefined;
         }
 
-        con.end();
     });
 };
 
@@ -1443,9 +1340,9 @@ function getLocusWithMapInfo(className, con, res, sendToClient = true) {
             return makeInnerQuery(con, res, query, list, sendToClient);
         } else {
 
-            res.send([]);
-
             con.end();
+
+            res.send([]);
         }
 
     });
@@ -2531,6 +2428,9 @@ function makeInnerQuery(con, res, query, list, returnToClient = true) {
         });
 
         console.log("DEVO TORNARE GLI OGGETTI");
+
+        con.end();
+
         if (returnToClient) {
             console.log("RETURN TO CLIENT TRUE QUINDI LI MANDO AL CLIENT");
             res.send(objectListFinal);
@@ -2538,17 +2438,18 @@ function makeInnerQuery(con, res, query, list, returnToClient = true) {
             console.log("LI INVIO AL METODO CHIAMANTE");
             return objectListFinal;
         }
-        con.end();
+
     });
 
     prom.catch(function (err) {
+        con.end();
         if (returnToClient) {
             res.writeHead(200, {"Content-Type": "text"});
             res.end("Si è verificato un errore nella richiesta");
         } else {
             return null;
         }
-        con.end();
+
     });
 }
 
@@ -2784,6 +2685,10 @@ async function searchFilm(res, req, filters = null) {
                 }
 
             } else {
+
+                con.end();
+                console.log("La connessione è stata chiusa");
+
                 console.log("Sono stao chiamato da 'get_rappr_luogo', ritorno la lista");
                 return list;
             }
@@ -3212,7 +3117,7 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
         var locusPromise = new Promise(async (resolve, reject) => {
             console.log("CHIEDO I LUOGHI PER POI CALCOLARE LE RAPPR LUOGO");
             var l = await getAllLocusWithMapInfoDB(res, false);
-            console.log(l);
+            //console.log(l);
             resolve(l);
         });
 
@@ -3227,15 +3132,24 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
                 body = JSON.parse(JSON.stringify(req.body));
             }
 
-            console.log("OBJECT FILTERS");
-            console.log(body);
+            //console.log("OBJECT FILTERS");
+            //console.log(body);
 
 
             var cameraPlacementLocusInRegionIDs = [];
             var narrativeLocusInRegionIDs = [];
 
-            cameraPlacementLocusInRegionIDs = await getLocusInRegionIDs(locus, body.luogoDiRipresaDrawnAreaGeoJSON, body.luogoDiRipresaRealPlacePolygon, body.luogodiRipresaSchedaLocusName, "CAMERA PLACEMENT");
-            narrativeLocusInRegionIDs = await getLocusInRegionIDs(locus, body.luogoNarrativoDrawnAreaGeoJSON, body.luogoNarrativoRealPlacePolygon, body.luogoNarrativoSchedaLocusName, "NARRATIVE");
+            var cameraFilterRegionNotFilled = false;
+            var narrativeFilterRegionNotFilled = false;
+
+            const cameraResult = await getLocusInRegionIDs(locus, body.luogoDiRipresaDrawnAreaGeoJSON, body.luogoDiRipresaRealPlacePolygon, body.luogodiRipresaSchedaLocusName, "CAMERA PLACEMENT");
+            cameraPlacementLocusInRegionIDs = cameraResult.locusInRegionIDs;
+            cameraFilterRegionNotFilled = cameraResult.filterRegionNotFilled;
+
+            const narrativeResult = await getLocusInRegionIDs(locus, body.luogoNarrativoDrawnAreaGeoJSON, body.luogoNarrativoRealPlacePolygon, body.luogoNarrativoSchedaLocusName, "NARRATIVE");
+            narrativeLocusInRegionIDs = narrativeResult.locusInRegionIDs;
+            narrativeFilterRegionNotFilled = narrativeResult.filterRegionNotFilled;
+
             console.log("cameraPlacementLocusInRegionIDs");
             console.log(cameraPlacementLocusInRegionIDs);
             console.log("narrativeLocusInRegionIDs");
@@ -3277,7 +3191,7 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
 
 
                 //Aggiungere query di select
-                var q = locusFunctions.composeLocusQuery(body, cameraPlacementLocusInRegionIDs, narrativeLocusInRegionIDs);
+                var q = locusFunctions.composeLocusQuery(body, cameraPlacementLocusInRegionIDs, narrativeLocusInRegionIDs, cameraFilterRegionNotFilled, narrativeFilterRegionNotFilled);
 
                 console.log("STAMPO Q!!!");
                 console.log(q);
@@ -3400,7 +3314,7 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
     var locusInRegion = [];
     var locusInRegionIDs = [];
     var noLocusInRegionNarrative = false;
-    var narrativeLocusEmpty = false;
+    var filterRegionNotFilled = false;
     if ((drawnAreaGeoJSON !== "" && drawnAreaGeoJSON !== null) || (realPlacePolygon !== "" && realPlacePolygon !== null)) {
         console.log("CALCOLO I LUOGHI");
         /*console.log("drawnAreaGeoJSON");
@@ -3776,14 +3690,17 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
         locusInRegionIDs.push(schedaLocusName);
     } else {
         //recupero tutti gli id dei locus
+        //TODO: sto modificando qua
+
+
         locus.forEach((loc) => {
             locusInRegionIDs.push(loc["dcterms:title"][0]["resource_id"]);
         });
 
-        narrativeLocusEmpty = true;
+        filterRegionNotFilled = true;
     }
 
-    return locusInRegionIDs;
+    return {locusInRegionIDs, filterRegionNotFilled};
 }
 
 async function getGeoJSON_OSM(overpassQuery) {
@@ -4090,8 +4007,8 @@ async function getRapprLuogo(res, req) {
                                     connectedRapprLuogo = connectedRapprLuogo[0];
                                 }
 
-                                console.log("connectedRapprLuogo");
-                                console.log(connectedRapprLuogo);
+                                //console.log("connectedRapprLuogo");
+                                //console.log(connectedRapprLuogo);
 
 
                                 if (body.locusFilters.ucCastMemberName !== null && body.locusFilters.ucCastMemberName !== undefined && body.locusFilters.ucCastMemberName !== "") {
@@ -4117,7 +4034,7 @@ async function getRapprLuogo(res, req) {
                                 //unita["precro:hasPlacesData"] = connectedRapprLuogo["precro:hasPlacesData"];
                                 unita["precro:description"] = connectedRapprLuogo["precro:description"];
 
-                                if (connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement']) {
+                                if (connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement']) {
                                     console.log("sono in camera placement");
                                     unita["cameraPlacement"] = [];
                                     connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'][0]['value'].forEach(cameraPlacement => {
@@ -4130,21 +4047,21 @@ async function getRapprLuogo(res, req) {
                                     });
                                 }
 
-                                if (connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject']) {
+                                if (connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject']) {
                                     unita["displayedObject"] = {
                                         "resource_id": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value'][0]['dcterms:title'][0]['resource_id'],
                                         "dcterms:title": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value'][0]['dcterms:title'][0]['value']
                                     }
                                 }
 
-                                if (connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace']) {
+                                if (connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace']) {
                                     unita["representedNarrativePlace"] = {
                                         "resource_id": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['resource_id'],
                                         "dcterms:title": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['value']
                                     }
                                 }
 
-                                if (connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'] && connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace']) {
+                                if (connectedRapprLuogo["precro:hasContextualElementsData"] && connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'] && connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace']) {
                                     unita["contextualNarrativePlace"] = {
                                         "resource_id": connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]['value'][0]['dcterms:title'][0]['resource_id'],
                                         "dcterms:title": connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]['value'][0]['dcterms:title'][0]['value']
@@ -4233,12 +4150,12 @@ function getFilmInfo(unita) {
         filmImageUrl = imageData[0]["value"][0]["ficro:caption"][0]["media_link"];
     }
 
-    console.log("FILM INFO");
-    console.log(unita["fiucro:hasLinkedFilmCopyCatalogueRecord"][0]["value"][0]["ficocro:hasLinkedFilmCatalogueRecord"][0]["value"][0]);
+    //console.log("FILM INFO");
+    //console.log(unita["fiucro:hasLinkedFilmCopyCatalogueRecord"][0]["value"][0]["ficocro:hasLinkedFilmCatalogueRecord"][0]["value"][0]);
 
     var genres = unita["fiucro:hasLinkedFilmCopyCatalogueRecord"][0]["value"][0]["ficocro:hasLinkedFilmCatalogueRecord"][0]["value"][0]["ficro:hasTypologyData"];
-    console.log("GENRES");
-    console.log(genres);
+    //console.log("GENRES");
+    //console.log(genres);
     return {
         filmId: filmInfo.resource_id,
         filmTitle: filmInfo.value,

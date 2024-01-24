@@ -1,11 +1,13 @@
-function composeLocusQuery(objectFilters, cameraPlacementLocusInRegionIDs, narrativeLocusInRegionIDs) {
+function composeLocusQuery(objectFilters, cameraPlacementLocusInRegionIDs, narrativeLocusInRegionIDs, cameraFilterRegionNotFilled, narrativeFilterRegionNotFilled) {
     console.log("COMPOSE LOCUS QUERY!!");
+    console.log("cameraFilterRegionNotFilled: " + cameraFilterRegionNotFilled);
+    console.log("narrativeFilterRegionNotFilled: " + narrativeFilterRegionNotFilled);
 
     var query = "CREATE TEMPORARY TABLE rappr_luogo AS( SELECT * FROM (";
     /*
     var query = `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
                 SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
-                FROM value v
+                FROM value vCREATE TEMPORARY TABLE IF NOT EXISTS locus_relationships_free_type AS
                          JOIN property p ON v.property_id = p.id;
                 `;*/
 
@@ -59,7 +61,7 @@ function composeLocusQuery(objectFilters, cameraPlacementLocusInRegionIDs, narra
     }
 
 
-    if (cameraPlacementLocusInRegionIDs.length > 0) {
+    if (cameraPlacementLocusInRegionIDs.length > 0 && !cameraFilterRegionNotFilled) {
 
         if (query_parts[0] || query_parts[1] || query_parts[2]) {
             query += '\n INTERSECT \n'
@@ -109,7 +111,7 @@ function composeLocusQuery(objectFilters, cameraPlacementLocusInRegionIDs, narra
         query_parts[3] = true;
     }
 
-    if (narrativeLocusInRegionIDs.length > 0) {
+    if (narrativeLocusInRegionIDs.length > 0 && !narrativeFilterRegionNotFilled) {
 
         if (query_parts[0] || query_parts[1] || query_parts[2] || query_parts[3]) {
             query += '\n INTERSECT \n'
