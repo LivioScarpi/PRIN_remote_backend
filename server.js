@@ -13,7 +13,7 @@ const turfFunctions = {...turf};
 
 // Importa funzioni specifiche da @turf/turf utilizzando require
 /*const {
-    intersect,
+    intersect,search_films
     booleanWithin,
     booleanContains,
     booleanPointInPolygon,
@@ -165,8 +165,8 @@ app.get("/server/get_locus_types", express.json(), cacheMiddleware, (req, res) =
     getLocusTypes(res);
 });
 
-app.post("/server/search_films", express.json(), cacheMiddleware, (req, res) => {
-    searchFilm(res, req);
+app.post("/server/search_films", express.json(), (req, res) => {
+    searchFilmWrapper(res, req);
 });
 
 app.post("/server/get_rappr_luogo", express.json(), (req, res) => {
@@ -178,7 +178,7 @@ app.post("/server/get_locus_of_film", express.json(), cacheMiddleware, (req, res
 });
 
 app.post("/server/get_films_of_locus", express.json(), cacheMiddleware, (req, res) => {
-    getFilmsOfLocusByLocusID(res, req);
+    getFilmsOfLocusByLocusID(res, req, null, true);
 });
 
 
@@ -250,7 +250,6 @@ connection.connect(async (err) => {
 
                 console.log("Server in ascolto sulla porta " + portNumber);
                 console.log("DB name: " + dbname);
-
 
 
                 // Schedula l'esecuzione del metodo alle 3 di notte (alle 3:00 AM)
@@ -1119,7 +1118,7 @@ function getFilmsHomepage(className, con, res) {
 
 };
 
-function getFilmsOfLocus(list, con, res) {
+async function getFilmsOfLocus(list, con, res, filters) {
     console.log("CHIEDO I FILM PER MOSSTRARLI E SONO DENTRO getFilmsOfLocus");
     console.log(list);
 
@@ -1170,7 +1169,7 @@ function getFilmsOfLocus(list, con, res) {
         console.log("QUERY");
         console.log(query);
 
-        makeInnerQuery(con, res, query, list);
+        makeInnerQuery(con, res, query, list, true);
     } else {
 
         res.send([]);
@@ -2453,6 +2452,60 @@ function makeInnerQuery(con, res, query, list, returnToClient = true) {
     });
 }
 
+async function searchFilmWrapper(res, req) {
+    cacheMiddleware(req, res, async () => {
+        console.log("BODY");
+        console.log(req.body);
+        var body = JSON.parse(JSON.stringify(req.body));
+
+        console.log("OBJECT FILTERS");
+        console.log(body);
+
+        var objectFilmInLocus = {"locus_id": body.locus};
+
+        if (body.locus === null) {
+            console.log("NON HO UN LOCUS COME PARAMETRO");
+            const [films] = await Promise.all([searchFilm(res, req, body)]);
+            console.log("films");
+            console.log(films);
+
+            var con = mysql.createConnection({
+                host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+            });
+
+            console.log("CHIEDO GLI OGGETTI INTERI DEI FILM");
+            getFilmsOfLocus(films, con, res, null);
+        } else {
+            console.log("HO UN LOCUS COME PARAMETRO");
+            const [films, filmsInLocus] = await Promise.all([searchFilm(res, req, body), getFilmsOfLocusByLocusID(res, req, objectFilmInLocus, false)]);
+            console.log("films");
+            console.log(films);
+
+            console.log("filmsInLocus");
+            console.log(filmsInLocus);
+
+            const filmIntersection = intersection(films, filmsInLocus);
+            console.log(filmIntersection); // Output: [3, 4, 5]
+
+            var con = mysql.createConnection({
+                host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+            });
+
+            console.log("CHIEDO GLI OGGETTI INTERI DEI FILM");
+            getFilmsOfLocus(filmIntersection, con, res, null);
+        }
+
+
+        //res.writeHead(200, {"Content-Type": "application/json"});
+        //res.end(JSON.stringify(filmIntersection));
+    });
+}
+
+function intersection(array1, array2) {
+    return array1.filter(value => array2.includes(value));
+}
+
+
 async function searchFilm(res, req, filters = null) {
 
     console.log("\n\n\nSONO IN SEARCH FILMS");
@@ -2708,16 +2761,26 @@ async function searchFilm(res, req, filters = null) {
     }
 }
 
-function getFilmsOfLocusByLocusID(res, req) {
-    var body = JSON.parse(JSON.stringify(req.body));
+async function getFilmsOfLocusByLocusID(res, req, filters = null, returnToClient = true) {
+    var body;
+    if (filters !== null) {
+        body = filters;
+    } else {
+        body = JSON.parse(JSON.stringify(req.body));
+    }
 
     console.log("OBJECT FILTERS");
     console.log(body);
 
     if (!body.locus_id) {
         console.log("ERROR: missing locus id");
-        res.writeHead(200, {"Content-Type": "application/json"});
-        res.end(JSON.stringify([]));
+
+        if (returnToClient) {
+            res.writeHead(200, {"Content-Type": "application/json"});
+            res.end(JSON.stringify([]));
+        } else {
+            return [];
+        }
     } else {
         console.log("Locus ID present");
         var con = mysql.createConnection({
@@ -2726,33 +2789,70 @@ function getFilmsOfLocusByLocusID(res, req) {
 
         var query = `SELECT Lista_id_connessi from LocusRelationships WHERE ID=${body.locus_id};`;
 
-        let locusList = new Promise((resolve, reject) => {
-            con.query(query, (err, rows) => {
-                // console.log(rows);
-                if (err) {
-                    return reject(err);
-                } else {
-                    let list = Object.values(JSON.parse(JSON.stringify(rows)));
+        async function executeBatchQueries(queries) {
+            return new Promise((resolve, reject) => {
+                var results = [];
+                var index = 0;
 
-                    resolve({list, res});
+                function executeNextQuery() {
+                    if (index < queries.length) {
+                        const query = queries[index];
+                        con.query(query, (error, queryResults) => {
+                            if (error) {
+                                con.rollback(() => {
+                                    console.error('Errore nell\'esecuzione della query:', error);
+                                    con.end();
+                                    reject(error);
+                                });
+                            } else {
+                                console.log('Query eseguita con successo:', query);
+                                if (index === 2) {
+                                    console.log('Risultati della terza query:', queryResults);
+                                    results = queryResults;
+                                }
+                                index++;
+                                executeNextQuery(); // Chiamata ricorsiva per la prossima query
+                            }
+                        });
+                    } else {
+                        // Tutte le query sono state eseguite, risolvi la Promise con i risultati
+                        resolve(results);
+                    }
                 }
+
+                executeNextQuery(); // Avvia la catena di esecuzione delle query
             });
-        });
+        }
 
-        locusList.then(function ({list, res}) {
-            console.log("LOCUS LIST RES NEL THEN");
+        // ... Il resto del tuo codice rimane invariato
 
-            list = list[0]["Lista_id_connessi"];
-            console.log(list);
+        async function executeQueries() {
+            try {
+                const locusList = await new Promise((resolve, reject) => {
+                    con.query(query, (err, rows) => {
+                        if (err) {
+                            return reject(err);
+                        } else {
+                            let list = Object.values(JSON.parse(JSON.stringify(rows)));
+                            resolve({list, res});
+                        }
+                    });
+                });
 
-            const queries = [`START TRANSACTION`,
+                var {list} = locusList;
+                list = list[0]["Lista_id_connessi"];
+                console.log("locusList e list");
+                console.log(locusList);
+                console.log(list);
 
-                `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+                const queries = [`START TRANSACTION`,
+
+                    `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
                     SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id
                     FROM value v
                     JOIN property p ON v.property_id = p.id;`,
 
-                `SELECT distinct av.value_resource_id as film_resource_id
+                    `SELECT distinct av.value_resource_id as film_resource_id
                         FROM tabella_unica rl1
                         JOIN tabella_unica uc ON rl1.value_resource_id = uc.resource_id
                         JOIN tabella_unica av ON uc.value_resource_id = av.resource_id
@@ -2770,67 +2870,47 @@ function getFilmsOfLocusByLocusID(res, req) {
                     OR (t2.value_resource_id IN (${list}) AND t2.local_name = 'placeRepresentationHasContextualNarrativePlace')
                 );`,
 
-                //vecchia query per i film
-                /*
-                `SELECT distinct av.value_resource_id as film_resource_id from tabella_unica rl1 JOIN tabella_unica uc ON rl1.value_resource_id = uc.resource_id JOIN tabella_unica av ON uc.value_resource_id = av.resource_id where rl1.resource_id IN (
-                SELECT distinct rl.resource_id FROM tabella_unica rl JOIN tabella_unica t2 ON rl.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id where t3.value_resource_id = ${body.locus_id} and t2.local_name="hasSinglePlaceRepresentationData" and t3.local_name IN ("placeRepresentationHasDisplayedObject", "placeRepresentationHasRepresentedNarrativePlace")
-                UNION
-                SELECT distinct rl.resource_id FROM tabella_unica rl JOIN tabella_unica t2 ON rl.value_resource_id = t2.resource_id where t2.value_resource_id = ${body.locus_id} and t2.local_name="placeRepresentationHasCameraPlacement"
-                UNION
-                SELECT distinct rl.resource_id FROM tabella_unica rl JOIN tabella_unica t2 ON rl.value_resource_id = t2.resource_id where t2.value_resource_id = ${body.locus_id} and t2.local_name="placeRepresentationHasContextualNarrativePlace"
-                )
-            and rl1.local_name="hasLinkedFilmUnitCatalogueRecord" and uc.local_name="hasLinkedFilmCopyCatalogueRecord" and av.local_name="hasLinkedFilmCatalogueRecord";`,
-*/
+                    `DROP TEMPORARY TABLE tabella_unica;`,
 
-                `DROP TEMPORARY TABLE tabella_unica;`,
+                    `COMMIT;`, // Aggiungi altre query qui
+                ];
 
-                `COMMIT;`, // Aggiungi altre query qui
-            ];
+                const results = await executeBatchQueries(queries);
 
-            var results = []; // Array per salvare i risultati della terza query
+                console.log("Risultati dopo l'esecuzione di tutte le query:", results);
 
-            function executeBatchQueries(queries, index = 0) {
-                if (index < queries.length) {
-                    const query = queries[index];
-                    con.query(query, (error, queryResults) => {
-                        if (error) {
-                            con.rollback(() => {
-                                console.error('Errore nell\'esecuzione della query:', error);
-                                con.end();
-                            });
-                        } else {
-                            console.log('Query eseguita con successo:', query);
-                            if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
-                                console.log('Risultati della terza query:', queryResults);
-                                results = queryResults;
-                            }
-                        }
-                        executeBatchQueries(queries, index + 1);
-                    });
-                } else {
-                    // Chiudi la connessione quando tutte le query sono state eseguite
-                    //con.end();
-                    // Restituisci i risultati della terza query al frontend
-                    console.log('Chiedo i film per mostrarli');
-                    console.log(results);
-
-                    var list = results.map(obj => obj.film_resource_id);
-                    console.log(list);
-
-                    if (list.length > 0) {
-                        getFilmsOfLocus(list, con, res);
+                var filmInLocus = [];
+                if (returnToClient) {
+                    console.log("DEVO TORNARE I FILM AL CLIENT");
+                    if (results.length > 0) {
+                        console.log("chiedo i film per mandarli al client");
+                        filmInLocus = getFilmsOfLocus(results.map(obj => obj.film_resource_id), con, res, filters);
                     } else {
                         con.end();
                         res.writeHead(200, {"Content-Type": "application/json"});
                         res.end(JSON.stringify([]));
                     }
-                    //res.writeHead(200, {"Content-Type": "application/json"});
-                    //res.end(JSON.stringify(results));
-
+                } else {
+                    console.log("ritorno list a searchFilmWrapper - returnToClient è false");
+                    if (results.length > 0) {
+                        return results.map(obj => obj.film_resource_id);
+                    } else {
+                        return [];
+                    }
                 }
-            }
 
-            executeBatchQueries(queries);
+            } catch (error) {
+                console.error("Errore durante l'esecuzione delle query:", error);
+                return [];
+            }
+        }
+
+        // Chiamare la funzione principale
+        return executeQueries().then(result => {
+            // Fai qualcosa con il risultato
+            console.log("executeQueries().then");
+            console.log(result);
+            return result;
         });
     }
 }
@@ -3094,7 +3174,7 @@ function getUCofFilmWithPresentPerson(res, req) {
 function areAllFiltersEmpty(obj) {
     for (const key in obj) {
         if (obj.hasOwnProperty(key)) {
-            if (key === "advancedSearch" || obj[key] === "" || obj[key] === null || (Array.isArray(obj[key]) && obj[key].length === 0)) {
+            if (key === "advancedSearch" || key === "locus" || obj[key] === "" || obj[key] === null || (Array.isArray(obj[key]) && obj[key].length === 0)) {
                 continue;
             } else {
                 console.log("CHIAVE NON VUOTA");
