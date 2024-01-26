@@ -3269,8 +3269,8 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
                     queries = locusFunctions.composeLocusOverTime(queries, narrativeLocusInRegionIDs, body.narrativeLocusPlaceType, "narrative", locusOverTimeRelationshipsDictionary);
                 }
 
-
                 //Aggiungere query di select
+
                 var q = locusFunctions.composeLocusQuery(body, cameraPlacementLocusInRegionIDs, narrativeLocusInRegionIDs, cameraFilterRegionNotFilled, narrativeFilterRegionNotFilled);
 
                 console.log("STAMPO Q!!!");
@@ -3823,6 +3823,8 @@ async function getRapprLuogo(res, req) {
 
             console.log("\n\nLOCUS FILTERS");
             console.log(body.locusFilters);//searchFilm(res, req, body.filmFilters),
+
+
             const [rapprLuogoFilmFilters, rapprLuogoLocusFilters] = await Promise.all([searchFilm(res, req, body.filmFilters), getRapprLuogoFilmFilters(res, req, body.locusFilters)]);
 
             console.log("Strutture dati ottenute");
