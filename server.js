@@ -2891,6 +2891,7 @@ async function getFilmsOfLocusByLocusID(res, req, filters = null, returnToClient
                         res.end(JSON.stringify([]));
                     }
                 } else {
+                    con.end();
                     console.log("ritorno list a searchFilmWrapper - returnToClient è false");
                     if (results.length > 0) {
                         return results.map(obj => obj.film_resource_id);
