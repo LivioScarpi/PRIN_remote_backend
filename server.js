@@ -169,6 +169,10 @@ app.post("/server/search_films", express.json(), (req, res) => {
     searchFilmWrapper(res, req);
 });
 
+app.post("/server/search_locus", express.json(), (req, res) => {
+    searchLocusWrapper(res, req);
+});
+
 app.post("/server/get_rappr_luogo", express.json(), (req, res) => {
     getRapprLuogo(res, req);
 });
@@ -2476,6 +2480,159 @@ async function searchFilmWrapper(res, req) {
             console.log("CHIEDO GLI OGGETTI INTERI DEI FILM");
             getFilmsOfLocus(films, con, res, null);
         } else {
+            console.log("HO UN LOCUS COME PARAMETRO");
+            const [films, filmsInLocus] = await Promise.all([searchFilm(res, req, body), getFilmsOfLocusByLocusID(res, req, objectFilmInLocus, false)]);
+            console.log("films");
+            console.log(films);
+
+            console.log("filmsInLocus");
+            console.log(filmsInLocus);
+
+            const filmIntersection = intersection(films, filmsInLocus);
+            console.log(filmIntersection); // Output: [3, 4, 5]
+
+            var con = mysql.createConnection({
+                host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+            });
+
+            console.log("CHIEDO GLI OGGETTI INTERI DEI FILM");
+            getFilmsOfLocus(filmIntersection, con, res, null);
+        }
+
+
+        //res.writeHead(200, {"Content-Type": "application/json"});
+        //res.end(JSON.stringify(filmIntersection));
+    });
+}
+
+async function searchLocusWrapper(res, req) {
+    cacheMiddleware(req, res, async () => {
+        console.log("BODY");
+        console.log(req.body);
+        var body = JSON.parse(JSON.stringify(req.body));
+
+        console.log("OBJECT FILTERS");
+
+        console.log(body);
+
+        if ((body.type === undefined || body.type === null || body.type === "") && (body.placeGeoJSON === undefined || body.placeGeoJSON === null || body.placeGeoJSON === "")) {
+            //TODO: restituire tutti i luoghi homepage DB
+            getAllLocusHomepageDB(res, true);
+        } else if (body.placeGeoJSON === undefined || body.placeGeoJSON === null || body.placeGeoJSON === "") {
+            //TODO: restituire i luoghi che hanno un certo tipo
+
+            const queries = [`START TRANSACTION`,
+
+                    `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
+                    SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
+                    FROM value v
+                             JOIN property p ON v.property_id = p.id;`];
+
+            var query = "";
+            if (body.typename_freetype === "type_name") {
+                query = `SELECT t1.resource_id FROM tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id JOIN tabella_unica t4 ON t3.value_resource_id = t4.resource_id
+                            WHERE t1.local_name = "hasBasicCharacterizationData" AND t2.local_name = "hasTypeData" AND t3.local_name = "hasIRITypeData" AND t4.local_name="typeName" AND t4.value = '${body.type}'`;
+            } else if (body.typename_freetype === "free_type") {
+                query = `SELECT t1.resource_id FROM tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+                            WHERE t1.local_name = "hasBasicCharacterizationData" AND t2.local_name = "hasTypeData" AND t3.local_name = "type" AND t3.value = '${body.type}'`;
+            }
+
+            console.log("\n\n\nQUERY:");
+            console.log(query);
+
+
+            var q = `
+                    WITH RECURSIVE test as ( 
+                        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
+                        FROM value as v1 
+                        WHERE v1.resource_id IN (${query})
+                    UNION
+                    (
+                      SELECT
+                        v2.resource_id,
+                        v2.property_id,
+                        v2.value_resource_id,
+                        v2.value,
+                        v2.uri
+                      FROM
+                        value as v2
+                        INNER JOIN test ON test.value_resource_id = v2.resource_id
+                    )
+                  )
+                  select
+                    test.resource_id,
+                    test.property_id,
+                    test.value_resource_id,
+                    test.value,
+                    property.local_name as property_name,
+                    property.label as property_label,
+                    vocabulary.prefix as vocabulary_prefix,
+                    r2.local_name,
+                    r2.label,
+                    m.storage_id as media_link,
+                    test.uri as uri_link
+                  from
+                    test
+                    join property on test.property_id = property.id
+                    join vocabulary on property.vocabulary_id = vocabulary.id
+                    join resource as r1 on test.resource_id = r1.id
+                    join resource_class as r2 on r1.resource_class_id = r2.id
+                    left join media as m on test.resource_id = m.item_id
+                  where property.local_name IN ("title", "hasBasicCharacterizationData", "realityStatus",  "name", "description", "hasImageData", "hasTypeData", "hasIRITypeData", "type", "hasIRIType", "typeName");`;
+
+
+            queries.push(q);
+
+            queries.push("COMMIT;");
+
+            console.log("\n\n\nQ:");
+            console.log(q);
+
+            var con = mysql.createConnection({
+                host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+            });
+
+
+            var results = []; // Array per salvare i risultati della terza query
+
+            function executeBatchQueries(queries, index = 0) {
+                if (index < queries.length) {
+                    const query = queries[index];
+                    con.query(query, (error, queryResults) => {
+                        if (error) {
+                            con.rollback(() => {
+                                console.error('Errore nell\'esecuzione della query:', error);
+                                con.end();
+                            });
+                        } else {
+                            console.log('Query eseguita con successo:', query);
+                            if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
+                                console.log('Risultati della terza query:', queryResults);
+                                results = queryResults;
+                            }
+                        }
+                        executeBatchQueries(queries, index + 1);
+                    });
+                } else {
+                    // Chiudi la connessione quando tutte le query sono state eseguite
+                    con.end();
+                    // Restituisci i risultati della terza query al frontend
+                    console.log('Risultati finali da restituire al frontend:', results);
+
+                    res.writeHead(200, {"Content-Type": "application/json"});
+                    res.end(JSON.stringify(results));
+
+                }
+            }
+
+            executeBatchQueries(queries);
+
+
+        } else if (body.type === undefined || body.type === null || body.type === "") {
+            //TODO: restituire i luoghi che stanno nella regione con GeoJSON passato come parametro e recuperare tutti luoghi all'interno tramite locus relationships
+
+        } else {
+            //TODO: trovare i luoghi con un certo tipo e di questi vedere quali sono collocati nell'area geografica
             console.log("HO UN LOCUS COME PARAMETRO");
             const [films, filmsInLocus] = await Promise.all([searchFilm(res, req, body), getFilmsOfLocusByLocusID(res, req, objectFilmInLocus, false)]);
             console.log("films");
