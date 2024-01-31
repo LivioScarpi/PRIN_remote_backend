@@ -2582,6 +2582,7 @@ async function searchLocusWrapper(res, req) {
 
 
             queries.push(q);
+            queries.push(query);
 
             queries.push("COMMIT;");
 
@@ -2594,7 +2595,7 @@ async function searchLocusWrapper(res, req) {
 
 
             var results = []; // Array per salvare i risultati della terza query
-
+            var list = [];
             function executeBatchQueries(queries, index = 0) {
                 if (index < queries.length) {
                     const query = queries[index];
@@ -2609,6 +2610,11 @@ async function searchLocusWrapper(res, req) {
                             if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
                                 console.log('Risultati della terza query:', queryResults);
                                 results = queryResults;
+                            } else if (index  === 3) {
+                                console.log("\n\nLISTA IDS LUOGHI CON TIPO DATO");
+                                list = queryResults.map(res => res.resource_id);
+                                console.log("LIST");
+                                console.log(list);
                             }
                         }
                         executeBatchQueries(queries, index + 1);
@@ -2619,8 +2625,69 @@ async function searchLocusWrapper(res, req) {
                     // Restituisci i risultati della terza query al frontend
                     console.log('Risultati finali da restituire al frontend:', results);
 
+                    let result = Object.values(JSON.parse(JSON.stringify(results)));
+
+                    var objectReversed = result.reverse();
+
+                    var ids = objectReversed.map(item => item["resource_id"]);
+
+                    const setIDs = [...new Set(ids)];
+
+                    let object = new Map();
+
+                    setIDs.forEach(id => {
+                        var objWithCurrentID = objectReversed.filter(obj => obj["resource_id"] === id);
+                        object.set(id, objWithCurrentID);
+                    });
+
+                    var arr = {};
+
+                    object.forEach((value, key) => {
+                        arr[key] = {};
+                        value.forEach(property => {
+
+                            var propertyObject = {};
+                            var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+
+                            propertyObject[propertyName] = property;
+
+                            if (arr[key][propertyName] === undefined) {
+                                arr[key][propertyName] = [property];
+                            } else {
+                                arr[key][propertyName].push(property);
+                            }
+                        });
+
+                        object.set(key, arr[key]);
+                    });
+
+                    object.forEach((value, key) => {
+                        for (let k in value) {
+                            value[k].forEach(prop => {
+                                if (prop.value_resource_id !== null) {
+                                    if (prop.value === undefined || prop.value === null) {
+                                        prop.value = [];
+                                        prop.value.push(object.get(prop.value_resource_id));
+                                    } else {
+                                        prop.value.push(object.get(prop.value_resource_id));
+                                    }
+                                }
+                            });
+                        }
+                    });
+
+                    var objectListFinal = [];
+
+                    list.forEach(id => {
+                        objectListFinal.push(object.get(id));
+                    })
+
+                    console.log("\n\n\nobjectListFinal");
+                    console.log(objectListFinal);
+                    ///
+
                     res.writeHead(200, {"Content-Type": "application/json"});
-                    res.end(JSON.stringify(results));
+                    res.end(JSON.stringify(objectListFinal));
 
                 }
             }
@@ -3848,8 +3915,8 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                                 }
 
                                 var overpassQuery = `
-                  [out:json];${type}(${matchOsmId[1]}); out geom;
-                `;
+                                  [out:json];${type}(${matchOsmId[1]}); out geom;
+                                `;
 
                                 console.log("OVERPASS QUERY");
                                 console.log(overpassQuery);
@@ -4010,13 +4077,16 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
 
                         } else if(currentLocusGeoJSON.geometry.type === "MultiLineString") {
                             console.log("SONO IN UNA MULTILINESTRING");
+
+                            console.log(JSON.stringify(currentLocusGeoJSON));
+                            console.log("\n\n\ngeojsonObject");
+                            console.log(JSON.stringify(geojsonObject));
                             var multiline = turfFunctions.multiLineString(currentLocusGeoJSON.geometry.coordinates);
                             var polygon = turf.lineStringToPolygon(multiline);
 
                             console.log(polygon);
 
-                            //TODO: sistemare qua
-                            intersection = turfFunctions.booleanCrosses(geojsonObject, polygon);
+                            intersection = turfFunctions.intersect(geojsonObject, polygon);
 
                         } else {
                             console.log("Non è un nessuna delle geometrie sopra");
