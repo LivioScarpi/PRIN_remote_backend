@@ -2127,26 +2127,26 @@ function getFilmFilters(res, req) {
         });
 
         var result = {
-            genres: genres,
-            titleType: titleType,
-            titleLanguage: titleLanguage,
-            productionCountry: productionCountry,
-            productionName: productionName,
-            dateTypology: dateTypology,
-            locusIRITypes: locusIRITypes,
-            directorsNames: directorsNames,
-            lighting: lighting,
-            cameraAngle: cameraAngle,
-            tilt: tilt,
-            cameraShotType: cameraShotType,
-            matte: matte,
-            pointOfView: pointOfView,
-            cameraMotion: cameraMotion,
-            colouring: colouring,
-            presentPersonCastMemberName: presentPersonCastMemberName,
-            presentPersonCharacterName: presentPersonCharacterName,
-            characterName: characterName,
-            filmCast: filmCast
+            genres: genres.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            titleType: titleType.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            titleLanguage: titleLanguage.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            productionCountry: productionCountry.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            productionName: productionName.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            dateTypology: dateTypology.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            locusIRITypes: locusIRITypes.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            directorsNames: directorsNames.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            lighting: lighting.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            cameraAngle: cameraAngle.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            tilt: tilt.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            cameraShotType: cameraShotType.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            matte: matte.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            pointOfView: pointOfView.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            cameraMotion: cameraMotion.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            colouring: colouring.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            presentPersonCastMemberName: presentPersonCastMemberName.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            presentPersonCharacterName: presentPersonCharacterName.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            characterName: characterName.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
+            filmCast: filmCast.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0))
         }
         //list = list.map(film => film.resource_id);
         //console.log("LISTA IDDDDDD");
