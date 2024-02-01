@@ -2113,7 +2113,7 @@ function getFilmFilters(res, req) {
         var castMemberName = list.filter(obj => obj.local_name === "castMemberName");
         var otherCastMemberName = list.filter(obj => obj.local_name === "otherCastMemberName");
         var characterName = removeDuplicatesByProps(list.filter(obj => obj.local_name === "characterName"));
-        const filmCast = [];
+        var filmCast = [];
 
         castMemberName.forEach(item1 => {
             const correspondingItems = otherCastMemberName.filter(item2 => item2.resource_id === item1.resource_id);
@@ -2126,27 +2126,38 @@ function getFilmFilters(res, req) {
             }
         });
 
+        //Remov duplicates form filmCast
+        // Utilizzo di un oggetto di appoggio per tracciare i valori già visti
+        var uniqueValues = {};
+        filmCast = filmCast.filter(obj => {
+            if (!uniqueValues[obj.value]) {
+                uniqueValues[obj.value] = true;
+                return true;
+            }
+            return false;
+        });
+
         var result = {
-            genres: genres.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            titleType: titleType.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            titleLanguage: titleLanguage.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            productionCountry: productionCountry.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            productionName: productionName.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            dateTypology: dateTypology.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            locusIRITypes: locusIRITypes.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            directorsNames: directorsNames.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            lighting: lighting.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            cameraAngle: cameraAngle.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            tilt: tilt.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            cameraShotType: cameraShotType.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            matte: matte.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            pointOfView: pointOfView.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            cameraMotion: cameraMotion.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            colouring: colouring.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            presentPersonCastMemberName: presentPersonCastMemberName.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            presentPersonCharacterName: presentPersonCharacterName.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            characterName: characterName.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0)),
-            filmCast: filmCast.sort((a, b) => (a.value > b.value) ? 1 : ((b.value > a.value) ? -1 : 0))
+            genres: genres.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            titleType: titleType.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            titleLanguage: titleLanguage.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            productionCountry: productionCountry.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            productionName: productionName.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            dateTypology: dateTypology.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            locusIRITypes: locusIRITypes.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            directorsNames: directorsNames.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            lighting: lighting.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            cameraAngle: cameraAngle.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            tilt: tilt.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            cameraShotType: cameraShotType.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            matte: matte.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            pointOfView: pointOfView.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            cameraMotion: cameraMotion.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            colouring: colouring.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            presentPersonCastMemberName: presentPersonCastMemberName.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            presentPersonCharacterName: presentPersonCharacterName.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            characterName: characterName.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
+            filmCast: filmCast.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' }))
         }
         //list = list.map(film => film.resource_id);
         //console.log("LISTA IDDDDDD");
@@ -2240,13 +2251,13 @@ function getLocusTypes(res, req) {
                         var partOfDay = queryResults.filter(obj => obj.local_name === "partOfDayInNarrative").map(obj => obj.value);
 
                         results = {
-                            locusType: locusType,
-                            locusTypeName: locusTypeName,
-                            otherEntitiesType: otherEntitiesType,
-                            otherEntitiesTypeName: otherEntitiesTypeName,
-                            season: season,
-                            weather: weather,
-                            partOfDay: partOfDay
+                            locusType: locusType.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
+                            locusTypeName: locusTypeName.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
+                            otherEntitiesType: otherEntitiesType.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
+                            otherEntitiesTypeName: otherEntitiesTypeName.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
+                            season: season.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
+                            weather: weather.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
+                            partOfDay: partOfDay.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }))
                         };
                         //results = queryResults;
                     }
@@ -2507,13 +2518,13 @@ async function searchFilmWrapper(res, req) {
 
 async function searchLocusWrapper(res, req) {
     cacheMiddleware(req, res, async () => {
-        console.log("BODY");
-        console.log(req.body);
+        //console.log("BODY");
+        //console.log(req.body);
         var body = JSON.parse(JSON.stringify(req.body));
 
-        console.log("OBJECT FILTERS");
+       //console.log("OBJECT FILTERS");
 
-        console.log(body);
+        //console.log(body);
 
         if ((body.type === undefined || body.type === null || body.type === "") && (body.placeGeoJSON === undefined || body.placeGeoJSON === null || body.placeGeoJSON === "")) {
             //TODO: restituire tutti i luoghi homepage DB
@@ -2607,15 +2618,15 @@ async function searchLocusWrapper(res, req) {
                                 con.end();
                             });
                         } else {
-                            console.log('Query eseguita con successo:', query);
+                            //console.log('Query eseguita con successo:', query);
                             if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
-                                console.log('Risultati della terza query:', queryResults);
+                                //console.log('Risultati della terza query:', queryResults);
                                 results = queryResults;
                             } else if (index === 3) {
-                                console.log("\n\nLISTA IDS LUOGHI CON TIPO DATO");
+                                //console.log("\n\nLISTA IDS LUOGHI CON TIPO DATO");
                                 list = queryResults.map(res => res.resource_id);
-                                console.log("LIST");
-                                console.log(list);
+                                //console.log("LIST");
+                                //console.log(list);
                             }
                         }
                         executeBatchQueries(queries, index + 1);
@@ -2624,7 +2635,7 @@ async function searchLocusWrapper(res, req) {
                     // Chiudi la connessione quando tutte le query sono state eseguite
                     con.end();
                     // Restituisci i risultati della terza query al frontend
-                    console.log('Risultati finali da restituire al frontend:', results);
+                    //console.log('Risultati finali da restituire al frontend:', results);
 
                     let result = Object.values(JSON.parse(JSON.stringify(results)));
 
@@ -2701,12 +2712,12 @@ async function searchLocusWrapper(res, req) {
 
             const [locus] = await Promise.all([getAllLocusWithMapInfoDB(res, false)]);
 
-            console.log("\n\n\nLOCUS OTTENUTI");
-            console.log(locus);
+            //console.log("\n\n\nLOCUS OTTENUTI");
+            //console.log(locus);
 
             const locusIDsResults = await getLocusInRegionIDs(locus, null, body.placeGeoJSON, null, "Search Locus");
-            console.log("\n\n\n\nHO OTTENUTI I LOCUS CHE STANNO NELLA REGIONE GEOGRAFICA");
-            console.log(locusIDsResults);
+            //console.log("\n\n\n\nHO OTTENUTI I LOCUS CHE STANNO NELLA REGIONE GEOGRAFICA");
+            //console.log(locusIDsResults);
 
             console.log("ORA RECUPERO I LUOGHI CHET STANNO ALL'INTERNO DI ESSI");
 
@@ -2791,15 +2802,15 @@ async function searchLocusWrapper(res, req) {
                                 con.end();
                             });
                         } else {
-                            console.log('Query eseguita con successo:', query);
+                            //console.log('Query eseguita con successo:', query);
                             if (index === 0) { // Verifica se questa è la terza query (l'indice 2)
-                                console.log('Risultati della terza query:', queryResults);
+                                //console.log('Risultati della terza query:', queryResults);
                                 results = queryResults;
                             } else if (index === 1) {
-                                console.log("\n\nLISTA IDS LUOGHI CON TIPO DATO");
+                                //console.log("\n\nLISTA IDS LUOGHI CON TIPO DATO");
                                 list = queryResults.map(res => res.resource_id);
-                                console.log("LIST");
-                                console.log(list);
+                                //console.log("LIST");
+                                //console.log(list);
                             }
                         }
                         executeBatchQueries(queries, index + 1);
@@ -2808,7 +2819,7 @@ async function searchLocusWrapper(res, req) {
                     // Chiudi la connessione quando tutte le query sono state eseguite
                     con.end();
                     // Restituisci i risultati della terza query al frontend
-                    console.log('Risultati finali da restituire al frontend:', results);
+                    //console.log('Risultati finali da restituire al frontend:', results);
 
                     let result = Object.values(JSON.parse(JSON.stringify(results)));
 
@@ -2867,8 +2878,8 @@ async function searchLocusWrapper(res, req) {
                         objectListFinal.push(object.get(id));
                     })
 
-                    console.log("\n\n\nobjectListFinal");
-                    console.log(objectListFinal);
+                    //console.log("\n\n\nobjectListFinal");
+                    //console.log(objectListFinal);
                     ///
 
                     res.writeHead(200, {"Content-Type": "application/json"});
@@ -4253,13 +4264,13 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                         } else if (currentLocusGeoJSON.geometry.type === "MultiLineString") {
                             console.log("SONO IN UNA MULTILINESTRING");
 
-                            console.log(JSON.stringify(currentLocusGeoJSON));
-                            console.log("\n\n\ngeojsonObject");
-                            console.log(JSON.stringify(geojsonObject));
+                            //console.log(JSON.stringify(currentLocusGeoJSON));
+                            //console.log("\n\n\ngeojsonObject");
+                            //console.log(JSON.stringify(geojsonObject));
                             var multiline = turfFunctions.multiLineString(currentLocusGeoJSON.geometry.coordinates);
                             var polygon = turf.lineStringToPolygon(multiline);
 
-                            console.log(polygon);
+                            //console.log(polygon);
 
                             intersection = turfFunctions.intersect(geojsonObject, polygon);
 
@@ -4267,7 +4278,13 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                             console.log("Non è un nessuna delle geometrie sopra");
                             intersection = turfFunctions.intersect(geojsonObject, currentLocusGeoJSON);
                             console.log("INTERSECTION");
-                            console.log(intersection);
+                            console.log(JSON.stringify(intersection));
+
+                            if(intersection) {
+                                // Calcola l'area del poligono
+                                const area = turfFunctions.area(intersection);
+                                console.log('Area del poligono:', area, 'metri quadrati');
+                            }
                         }
 
                         var primoContieneSecondo = null;
