@@ -62,7 +62,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 */
 
-
+/*
 // Middleware per il caching
 const cacheMiddleware = (req, res, next) => {
     console.log("ENTRO IN CACHE");
@@ -118,6 +118,213 @@ const cacheMiddleware = (req, res, next) => {
         next(); // Passa al prossimo middleware se non soddisfa nessuna delle condizioni sopra
     }
 };
+*/
+
+/*
+const cacheMiddleware = (req, res, next) => {
+    console.log("ENTRO IN CACHE");
+    const key = req.originalUrl || req.url; // Chiave basata sull'URL della richiesta
+
+    // Se la richiesta è di tipo POST e contiene un body JSON
+    if (req.method === 'POST' && req.body) {
+        const bodyParams = JSON.stringify(req.body);
+        const cacheKey = key + bodyParams; // Aggiungi i parametri del body all'URL
+        console.log("cacheKey");
+        console.log(cacheKey);
+
+        const cachedResponse = cache.get(cacheKey);
+
+        if (cachedResponse) {
+            console.log("RISPOSTA IN CACHE");
+            console.log(cachedResponse);
+            var cachedResponseObject = JSON.parse(cachedResponse);
+            var totalResults = null;
+            if (Array.isArray(cachedResponseObject)) {
+                console.log("CACHE POST - CALCOLO TOTAL RESULTS: " + totalResults)
+                totalResults = cachedResponseObject.length;
+                cachedResponseObject = null;
+            } else {
+                console.log("CACHE POST - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
+            }
+            // Se la risposta è presente nella cache, restituisci solo la parte richiesta
+            return sendPaginatedResponse(res, cachedResponseObject, req.query.page || 1, totalResults);
+        } else {
+            console.log("RISPOSTA NON IN CACHE MANNAGGIA");
+
+            // Altrimenti, procedi con la richiesta e memorizza la risposta nella cache
+            res.sendResponse = res.send;
+            res.send = (body) => {
+                console.log("STO SALVANDO IN CACHE LA RICHIESTA");
+                cache.set(cacheKey, body, 600); // 600 secondi: 10 minuti -> poi il dato salvato diventa obsoleto
+
+                var bodyObject = JSON.parse(body);
+                var totalResults = null;
+                if (Array.isArray(bodyObject)) {
+                    console.log("POST - CALCOLO TOTAL RESULTS: " + totalResults);
+                    totalResults = bodyObject.length;
+                } else {
+                    console.log("POST - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
+                }
+                // Restituisci solo la parte richiesta anche quando la risposta non è in cache
+                sendPaginatedResponse(res, bodyObject, req.query.page || 1, totalResults);
+            };
+            console.log("CHIAMO NEXT");
+            next();
+        }
+    } else if (req.method === 'GET' && Object.keys(req.query).length === 0) {
+        console.log("SONO IN UNA GET");
+        // Se la richiesta è di tipo GET senza parametri
+        const cachedResponse = cache.get(key);
+
+        if (cachedResponse) {
+            console.log("LA RISPOSTA E' IN CACHE: " + key);
+            // Se la risposta è presente nella cache, restituisci solo la parte richiesta
+            var cachedResponseObject = cachedResponse;
+            var totalResults = null;
+            if (Array.isArray(cachedResponseObject)) {
+                console.log("CACHE GET - CALCOLO TOTAL RESULTS: " + totalResults);
+                totalResults = cachedResponseObject.length;
+                //cachedResponseObject = null;
+            } else {
+                console.log("CACHE GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
+            }
+            return sendPaginatedResponse(res, cachedResponseObject, req.query.page || 1, totalResults);
+        } else {
+            console.log("LA RISPOSTA NON E' IN CACHE");
+            res.sendResponse = res.send;
+            res.send = (body) => {
+                console.log("ENTRO QUA PER GESTIRE LA RISPOSTA, stampo res.headersSent");
+                console.log(res.headersSent);
+                if (!res.headersSent) {
+                    console.log("\n\n\nSTO SALVANDO IN CACHE LA RICHIESTA\n\n");
+                    cache.set(key, body, 600); // 600 secondi: 10 minuti -> poi il dato salvato diventa obsoleto
+                    // Restituisci solo la parte richiesta anche quando la risposta non è in cache
+
+                    console.log(body);
+
+                    var bodyObject = body;
+                    var totalResults = null;
+                    if (Array.isArray(bodyObject)) {
+                        totalResults = bodyObject.length;
+                        console.log("GET - CALCOLO TOTAL RESULTS: " + totalResults);
+                        //bodyObject = null;
+                    } else {
+                        console.log("GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
+                    }
+
+                    sendPaginatedResponse(res, bodyObject, req.query.page || 1, totalResults);
+                } else {
+                    console.log("\n\nRISPOSTA GIA' INVIATA");
+                }
+            };
+            console.log("CHIAMO NEXT IN GET NON IN CACHE");
+            next(); // Passa al prossimo middleware se la risposta non è presente nella cache
+        }
+    } else {
+        next(); // Passa al prossimo middleware se non soddisfa nessuna delle condizioni sopra
+    }
+};
+*/
+
+const cacheMiddleware = (req, res, next) => {
+    console.log("ENTRO IN cacheMiddleware");
+    const key = '__express__' + req.originalUrl || req.url;
+    var cacheKey = key;
+
+    if (req.method === 'POST' && req.body) {
+        const bodyParams = JSON.stringify(req.body);
+        cacheKey = key + bodyParams; // Aggiungi i parametri del body all'URL
+    }
+
+    const cachedData = cache.get(cacheKey);
+
+    if (cachedData) {
+        console.log("DATI IN CACHE");
+        // Se i dati sono presenti nella cache, inviali direttamente
+        //res.send(cachedData);
+        var cachedDataObj = JSON.parse(cachedData);
+        var totalResults = null;
+        if (Array.isArray(cachedDataObj)) {
+            totalResults = cachedDataObj.length;
+            console.log("CACHE GET - CALCOLO TOTAL RESULTS: " + totalResults);
+        } else {
+            console.log("CACHE GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
+        }
+
+        sendInCachePaginatedResponse(res, cachedDataObj, req.query.page || 1, totalResults);
+    } else {
+        console.log("DATI NON IN CACHE");
+
+        // Altrimenti, continua con l'esecuzione normale e salva i dati nella cache successivamente
+        res.sendResponse = res.send;
+        res.send = (body) => {
+            console.log("INTERCETTO LA RISPOSTA E SALVO IN CACHE");
+            cache.set(key, body, 600); // Salva i dati in cache con il timeout di 600 secondi, ovvero 10 minuti
+
+            console.log(body);
+
+            body = JSON.parse(body);
+
+            var totalResults = null;
+            if (Array.isArray(body)) {
+                console.log("NON IN CACHE GET - CALCOLO TOTAL RESULTS: " + totalResults);
+                totalResults = body.length;
+            } else {
+                console.log("NON IN CACHE GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
+            }
+
+            console.log("CHIAMO sendNotInCachePaginatedResponse");
+
+            sendNotInCachePaginatedResponse(res, body, req.query.page || 1, totalResults);
+
+            //res.sendResponse(body);
+        };
+        console.log("CHIAMO NEXT");
+        next();
+    }
+};
+
+const pageSize = 20;
+
+const sendInCachePaginatedResponse = (res, data, page, totalResults) => {
+    console.log("SONO IN SEND PAGINATED RESPONSE");
+    console.log("totalResults: " + totalResults);
+    console.log("page: " + page);
+    console.log("data: " + data.length);
+    //console.log(data);
+
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+
+    console.log("start index: " + startIndex);
+    console.log("end index: " + endIndex);
+
+    const paginatedData = data.slice(startIndex, endIndex);
+    console.log("paginatedData length: " + paginatedData.length);
+    res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
+    res.send(paginatedData);
+};
+
+const sendNotInCachePaginatedResponse = (res, data, page, totalResults) => {
+    console.log("SONO IN SEND PAGINATED RESPONSE");
+    console.log("totalResults: " + totalResults);
+    console.log("page: " + page);
+    console.log("data: " + data.length);
+    //console.log(data);
+
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+
+    console.log("start index: " + startIndex);
+    console.log("end index: " + endIndex);
+
+    const paginatedData = data.slice(startIndex, endIndex);
+    console.log("paginatedData length: " + paginatedData.length);
+    res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
+    res.sendResponse(JSON.stringify(paginatedData));
+    //res.send(paginatedData);
+};
+
 
 app.get("/server/overview", (req, res) => {
     res.send('Welcome to the "overview page" of the nginX project');
@@ -1111,10 +1318,8 @@ function getFilmsHomepage(className, con, res) {
 
             makeInnerQuery(con, res, query, list);
         } else {
-
-            res.send([]);
-
             con.end();
+            res.json([]);
         }
 
     });
@@ -1175,10 +1380,8 @@ async function getFilmsOfLocus(list, con, res, filters) {
 
         makeInnerQuery(con, res, query, list, true);
     } else {
-
-        res.send([]);
-
         con.end();
+        res.json([]);
     }
 
 };
@@ -1257,10 +1460,8 @@ function getLocusHomepage(className, con, res, sendToClient = true) {
 
             return makeInnerQuery(con, res, query, list, sendToClient);
         } else {
-
-            res.send([]);
-
             con.end();
+            res.json([]);
         }
 
     });
@@ -1342,10 +1543,8 @@ function getLocusWithMapInfo(className, con, res, sendToClient = true) {
 
             return makeInnerQuery(con, res, query, list, sendToClient);
         } else {
-
             con.end();
-
-            res.send([]);
+            res.json([]);
         }
 
     });
@@ -1427,10 +1626,8 @@ function getResourcesFromClassName(className, con, res) {
 
             makeInnerQuery(con, res, query, list);
         } else {
-
-            res.send([]);
-
             con.end();
+            res.json([]);
         }
 
     });
@@ -2138,26 +2335,26 @@ function getFilmFilters(res, req) {
         });
 
         var result = {
-            genres: genres.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            titleType: titleType.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            titleLanguage: titleLanguage.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            productionCountry: productionCountry.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            productionName: productionName.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            dateTypology: dateTypology.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            locusIRITypes: locusIRITypes.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            directorsNames: directorsNames.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            lighting: lighting.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            cameraAngle: cameraAngle.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            tilt: tilt.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            cameraShotType: cameraShotType.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            matte: matte.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            pointOfView: pointOfView.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            cameraMotion: cameraMotion.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            colouring: colouring.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            presentPersonCastMemberName: presentPersonCastMemberName.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            presentPersonCharacterName: presentPersonCharacterName.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            characterName: characterName.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' })),
-            filmCast: filmCast.sort((a, b) => a.value.localeCompare(b.value, 'it', { sensitivity: 'base' }))
+            genres: genres.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            titleType: titleType.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            titleLanguage: titleLanguage.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            productionCountry: productionCountry.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            productionName: productionName.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            dateTypology: dateTypology.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            locusIRITypes: locusIRITypes.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            directorsNames: directorsNames.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            lighting: lighting.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            cameraAngle: cameraAngle.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            tilt: tilt.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            cameraShotType: cameraShotType.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            matte: matte.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            pointOfView: pointOfView.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            cameraMotion: cameraMotion.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            colouring: colouring.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            presentPersonCastMemberName: presentPersonCastMemberName.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            presentPersonCharacterName: presentPersonCharacterName.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            characterName: characterName.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'})),
+            filmCast: filmCast.sort((a, b) => a.value.localeCompare(b.value, 'it', {sensitivity: 'base'}))
         }
         //list = list.map(film => film.resource_id);
         //console.log("LISTA IDDDDDD");
@@ -2251,13 +2448,13 @@ function getLocusTypes(res, req) {
                         var partOfDay = queryResults.filter(obj => obj.local_name === "partOfDayInNarrative").map(obj => obj.value);
 
                         results = {
-                            locusType: locusType.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
-                            locusTypeName: locusTypeName.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
-                            otherEntitiesType: otherEntitiesType.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
-                            otherEntitiesTypeName: otherEntitiesTypeName.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
-                            season: season.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
-                            weather: weather.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' })),
-                            partOfDay: partOfDay.sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }))
+                            locusType: locusType.sort((a, b) => a.localeCompare(b, 'it', {sensitivity: 'base'})),
+                            locusTypeName: locusTypeName.sort((a, b) => a.localeCompare(b, 'it', {sensitivity: 'base'})),
+                            otherEntitiesType: otherEntitiesType.sort((a, b) => a.localeCompare(b, 'it', {sensitivity: 'base'})),
+                            otherEntitiesTypeName: otherEntitiesTypeName.sort((a, b) => a.localeCompare(b, 'it', {sensitivity: 'base'})),
+                            season: season.sort((a, b) => a.localeCompare(b, 'it', {sensitivity: 'base'})),
+                            weather: weather.sort((a, b) => a.localeCompare(b, 'it', {sensitivity: 'base'})),
+                            partOfDay: partOfDay.sort((a, b) => a.localeCompare(b, 'it', {sensitivity: 'base'}))
                         };
                         //results = queryResults;
                     }
@@ -2447,21 +2644,10 @@ function makeInnerQuery(con, res, query, list, returnToClient = true) {
 
         if (returnToClient) {
             console.log("RETURN TO CLIENT TRUE QUINDI LI MANDO AL CLIENT");
-            res.send(objectListFinal);
+            res.json(objectListFinal);
         } else {
             console.log("LI INVIO AL METODO CHIAMANTE");
             return objectListFinal;
-        }
-
-    });
-
-    prom.catch(function (err) {
-        con.end();
-        if (returnToClient) {
-            res.writeHead(200, {"Content-Type": "text"});
-            res.end("Si è verificato un errore nella richiesta");
-        } else {
-            return null;
         }
 
     });
@@ -2522,7 +2708,7 @@ async function searchLocusWrapper(res, req) {
         //console.log(req.body);
         var body = JSON.parse(JSON.stringify(req.body));
 
-       //console.log("OBJECT FILTERS");
+        //console.log("OBJECT FILTERS");
 
         //console.log(body);
 
@@ -3774,7 +3960,7 @@ function getUCofFilmWithPresentPerson(res, req) {
                 console.log('Risultati finali da restituire al frontend:', results);
 
                 //res.writeHead(200, {"Content-Type": "application/json"});
-                res.send(results);
+                res.json(results);
 
             }
         }
@@ -4280,7 +4466,7 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                             console.log("INTERSECTION");
                             console.log(JSON.stringify(intersection));
 
-                            if(intersection) {
+                            if (intersection) {
                                 // Calcola l'area del poligono
                                 const area = turfFunctions.area(intersection);
                                 console.log('Area del poligono:', area, 'metri quadrati');
@@ -4473,7 +4659,7 @@ async function getRapprLuogo(res, req) {
 
             if (rapprLuogoFilmFilters.length === 0 || rapprLuogoLocusFilters.length === 0) {
                 //nessun risultato trovato con questi filtri
-                res.send([]);
+                res.json([]);
             } else {
                 if (rapprLuogoFilmFilters.length > 0 && rapprLuogoLocusFilters.length > 0) {
                     //quale film rispetta i filtri
@@ -4827,22 +5013,22 @@ async function getRapprLuogo(res, req) {
                                 return catalogoFilm[key];
                             })
 
-                            res.send(catalogoFilmArray);
+                            res.json(catalogoFilmArray);
 
                             //res.send(catalogoFilm);
                         });
 
                     } else {
-                        res.send([]);
+                        res.json([]);
                     }
 
 
                 } else if (rapprLuogoFilmFilters.length === 0) {
                     //TODO: restituire un messaggio che dica che non sono stati trovati dei risultati per i filtri sui film
-                    res.send('I filtri sui film non hanno prodotto alcun risultato');
+                    res.json({message: 'I filtri sui film non hanno prodotto alcun risultato'});
                 } else if (rapprLuogoLocusFilters.length === 0) {
                     //TODO: restituire un messaggio che dica che non sono stati trovati dei risultati per i filtri sui luoghi
-                    res.send('I filtri sui locus non hanno prodotto alcun risultato');
+                    res.json({message: 'I filtri sui locus non hanno prodotto alcun risultato'});
                 }
             }
 
