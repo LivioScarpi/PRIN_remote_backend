@@ -48,6 +48,13 @@ const cors = require("cors");
 
 // Imposta il limite della dimensione del corpo della richiesta a 50 MB
 app.use(bodyParser.json({limit: '50mb'}));
+// Nel codice del server (Node.js con Express, ad esempio)
+app.use(function(req, res, next) {
+    //res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header("Access-Control-Expose-Headers", "X-Total-Results");
+    next();
+});
 
 const portNumber = production ? 3004 : 3003;
 const dbname = production ? "omekas_production_db" : "omekas_db";
@@ -236,6 +243,9 @@ const cacheMiddleware = (req, res, next) => {
         cacheKey = key + bodyParams; // Aggiungi i parametri del body all'URL
     }
 
+    //console.log("CACHE KEY");
+    //console.log(cacheKey);
+
     const cachedData = cache.get(cacheKey);
 
     if (cachedData) {
@@ -247,11 +257,12 @@ const cacheMiddleware = (req, res, next) => {
         if (Array.isArray(cachedDataObj)) {
             totalResults = cachedDataObj.length;
             console.log("CACHE GET - CALCOLO TOTAL RESULTS: " + totalResults);
+            sendInCachePaginatedResponse(res, cachedDataObj, req.query.page || 1, totalResults);
         } else {
             console.log("CACHE GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
+            res.send(cachedData);
         }
 
-        sendInCachePaginatedResponse(res, cachedDataObj, req.query.page || 1, totalResults);
     } else {
         console.log("DATI NON IN CACHE");
 
@@ -259,23 +270,24 @@ const cacheMiddleware = (req, res, next) => {
         res.sendResponse = res.send;
         res.send = (body) => {
             console.log("INTERCETTO LA RISPOSTA E SALVO IN CACHE");
-            cache.set(key, body, 600); // Salva i dati in cache con il timeout di 600 secondi, ovvero 10 minuti
+            cache.set(cacheKey, body, 600); // Salva i dati in cache con il timeout di 600 secondi, ovvero 10 minuti
 
-            console.log(body);
+            //console.log(body);
 
             body = JSON.parse(body);
 
             var totalResults = null;
             if (Array.isArray(body)) {
-                console.log("NON IN CACHE GET - CALCOLO TOTAL RESULTS: " + totalResults);
                 totalResults = body.length;
+                console.log("NON IN CACHE GET - CALCOLO TOTAL RESULTS: " + totalResults);
+                sendNotInCachePaginatedResponse(res, body, req.query.page || 1, totalResults);
             } else {
                 console.log("NON IN CACHE GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
+                res.sendResponse(JSON.stringify(body));
             }
 
             console.log("CHIAMO sendNotInCachePaginatedResponse");
 
-            sendNotInCachePaginatedResponse(res, body, req.query.page || 1, totalResults);
 
             //res.sendResponse(body);
         };
@@ -321,6 +333,7 @@ const sendNotInCachePaginatedResponse = (res, data, page, totalResults) => {
     const paginatedData = data.slice(startIndex, endIndex);
     console.log("paginatedData length: " + paginatedData.length);
     res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
+    console.log("Ho impostato l'header, ora invio la risposta");
     res.sendResponse(JSON.stringify(paginatedData));
     //res.send(paginatedData);
 };
@@ -2880,12 +2893,21 @@ async function searchLocusWrapper(res, req) {
                         objectListFinal.push(object.get(id));
                     })
 
+                    //Ordino in ordine alfabetico
+                    objectListFinal.sort((a, b) => {
+                        const titleA = a['dcterms:title'][0]['value'].split(':')[1].trim();
+                        const titleB = b['dcterms:title'][0]['value'].split(':')[1].trim();
+
+                        // Usa localeCompare per ordinare in base al titolo (ignorando maiuscole/minuscole)
+                        return titleA.localeCompare(titleB);
+                    });
+
                     console.log("\n\n\nobjectListFinal");
                     console.log(objectListFinal);
                     ///
 
-                    res.writeHead(200, {"Content-Type": "application/json"});
-                    res.end(JSON.stringify(objectListFinal));
+                    //res.writeHead(200, {"Content-Type": "application/json"});
+                    res.json(objectListFinal);
 
                 }
             }
@@ -3064,12 +3086,16 @@ async function searchLocusWrapper(res, req) {
                         objectListFinal.push(object.get(id));
                     })
 
-                    //console.log("\n\n\nobjectListFinal");
-                    //console.log(objectListFinal);
-                    ///
+                    //Ordino in ordine alfabetico
+                    objectListFinal.sort((a, b) => {
+                        const titleA = a['dcterms:title'][0]['value'].split(':')[1].trim();
+                        const titleB = b['dcterms:title'][0]['value'].split(':')[1].trim();
 
-                    res.writeHead(200, {"Content-Type": "application/json"});
-                    res.end(JSON.stringify(objectListFinal));
+                        // Usa localeCompare per ordinare in base al titolo (ignorando maiuscole/minuscole)
+                        return titleA.localeCompare(titleB);
+                    });
+
+                    res.json(objectListFinal);
 
                 }
             }
@@ -3283,8 +3309,17 @@ async function searchLocusWrapper(res, req) {
                     console.log("\n\n\nlocusObjectsResult");
                     console.log(locusObjectsResult);
 
+                    //Ordino in ordine alfabetico
+                    locusObjectsResult.sort((a, b) => {
+                        const titleA = a['dcterms:title'][0]['value'].split(':')[1].trim();
+                        const titleB = b['dcterms:title'][0]['value'].split(':')[1].trim();
+
+                        // Usa localeCompare per ordinare in base al titolo (ignorando maiuscole/minuscole)
+                        return titleA.localeCompare(titleB);
+                    });
+
                     res.writeHead(200, {"Content-Type": "application/json"});
-                    res.end(JSON.stringify(locusObjectsResult));
+                    res.json(locusObjectsResult);
 
                 }
             }
