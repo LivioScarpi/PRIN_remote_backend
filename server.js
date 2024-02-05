@@ -49,7 +49,7 @@ const cors = require("cors");
 // Imposta il limite della dimensione del corpo della richiesta a 50 MB
 app.use(bodyParser.json({limit: '50mb'}));
 // Nel codice del server (Node.js con Express, ad esempio)
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
     //res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     res.header("Access-Control-Expose-Headers", "X-Total-Results");
@@ -236,11 +236,13 @@ const cacheMiddleware = (req, res, next) => {
 const cacheMiddleware = (req, res, next) => {
     console.log("ENTRO IN cacheMiddleware");
     const key = '__express__' + req.originalUrl || req.url;
-    var cacheKey = key;
+    var cacheKey = key.replace(/\?page=\d+/, '');
+    console.log("CACHE KEY PRIMA");
+    console.log(cacheKey);
 
     if (req.method === 'POST' && req.body) {
         const bodyParams = JSON.stringify(req.body);
-        cacheKey = key + bodyParams; // Aggiungi i parametri del body all'URL
+        cacheKey = cacheKey + bodyParams; // Aggiungi i parametri del body all'URL
     }
 
     //console.log("CACHE KEY");
@@ -257,7 +259,7 @@ const cacheMiddleware = (req, res, next) => {
         if (Array.isArray(cachedDataObj)) {
             totalResults = cachedDataObj.length;
             console.log("CACHE GET - CALCOLO TOTAL RESULTS: " + totalResults);
-            sendInCachePaginatedResponse(res, cachedDataObj, req.query.page || 1, totalResults);
+            sendInCachePaginatedResponse(res, cachedDataObj, req.query.page, totalResults);
         } else {
             console.log("CACHE GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
             res.send(cachedData);
@@ -280,7 +282,7 @@ const cacheMiddleware = (req, res, next) => {
             if (Array.isArray(body)) {
                 totalResults = body.length;
                 console.log("NON IN CACHE GET - CALCOLO TOTAL RESULTS: " + totalResults);
-                sendNotInCachePaginatedResponse(res, body, req.query.page || 1, totalResults);
+                sendNotInCachePaginatedResponse(res, body, req.query.page, totalResults);
             } else {
                 console.log("NON IN CACHE GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
                 res.sendResponse(JSON.stringify(body));
@@ -301,42 +303,55 @@ const pageSize = 20;
 const sendInCachePaginatedResponse = (res, data, page, totalResults) => {
     console.log("SONO IN SEND PAGINATED RESPONSE");
     console.log("totalResults: " + totalResults);
-    console.log("page: " + page);
-    console.log("data: " + data.length);
-    //console.log(data);
 
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
+    if (page !== null && page !== "null") {
+        console.log("page: " + page);
+        console.log("data: " + data.length);
+        //console.log(data);
 
-    console.log("start index: " + startIndex);
-    console.log("end index: " + endIndex);
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
 
-    const paginatedData = data.slice(startIndex, endIndex);
-    console.log("paginatedData length: " + paginatedData.length);
-    res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
-    res.send(paginatedData);
+        console.log("start index: " + startIndex);
+        console.log("end index: " + endIndex);
+
+        const paginatedData = data.slice(startIndex, endIndex);
+        console.log("paginatedData length: " + paginatedData.length);
+        res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
+        res.send(paginatedData);
+    } else {
+        res.setHeader('X-Total-Results', data.length); // Aggiungi l'intestazione personalizzata
+        res.send(data);
+    }
 };
 
 const sendNotInCachePaginatedResponse = (res, data, page, totalResults) => {
-    console.log("SONO IN SEND PAGINATED RESPONSE");
-    console.log("totalResults: " + totalResults);
-    console.log("page: " + page);
-    console.log("data: " + data.length);
-    //console.log(data);
+        console.log("SONO IN SEND PAGINATED RESPONSE");
+        console.log("totalResults: " + totalResults);
 
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
+        if (page !== null && page !== "null") {
+            console.log("page: " + page);
+            console.log("data: " + data.length);
+            //console.log(data);
 
-    console.log("start index: " + startIndex);
-    console.log("end index: " + endIndex);
+            const startIndex = (page - 1) * pageSize;
+            const endIndex = startIndex + pageSize;
 
-    const paginatedData = data.slice(startIndex, endIndex);
-    console.log("paginatedData length: " + paginatedData.length);
-    res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
-    console.log("Ho impostato l'header, ora invio la risposta");
-    res.sendResponse(JSON.stringify(paginatedData));
-    //res.send(paginatedData);
-};
+            console.log("start index: " + startIndex);
+            console.log("end index: " + endIndex);
+
+            const paginatedData = data.slice(startIndex, endIndex);
+            console.log("paginatedData length: " + paginatedData.length);
+            res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
+            console.log("Ho impostato l'header, ora invio la risposta");
+            res.sendResponse(JSON.stringify(paginatedData));
+            //res.send(paginatedData);
+        } else {
+            res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
+            res.sendResponse(JSON.stringify(data));
+        }
+    }
+;
 
 
 app.get("/server/overview", (req, res) => {
@@ -4260,18 +4275,18 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
 
         console.log("\n\n\n\nFACCIO I LUOGHI NARRATIVI");*/
         for (const loc of locus) {
-            console.log("\n\n\n\nNUOVO LOCUS");
+            //console.log("\n\n\n\nNUOVO LOCUS");
             if (loc["filocro:hasMapReferenceData"]) {
-                console.log("primo if");
+                //console.log("primo if");
                 if (loc["filocro:hasMapReferenceData"][0]["value"][0]["filocro:mapReferenceTextualData"]) {
-                    console.log("secondo if");
+                    //console.log("secondo if");
                     if (loc["filocro:hasMapReferenceData"][0]["value"][0]["filocro:mapReferenceTextualData"][0]["value"]) {
-                        console.log("terzo if");
+                        //console.log("terzo if");
                         var json = loc["filocro:hasMapReferenceData"][0]["value"][0]["filocro:mapReferenceTextualData"][0]["value"];
                         var jsonObject = "";
                         var currentLocusGeoJSON = {};
 
-                        console.log(`${type} - CONTROLLO IL LOCUS: ` + loc["dcterms:title"][0]["resource_id"]);
+                        //console.log(`${type} - CONTROLLO IL LOCUS: ` + loc["dcterms:title"][0]["resource_id"]);
                         //console.log(json);
 
 
@@ -4325,8 +4340,8 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                                   [out:json];${type}(${matchOsmId[1]}); out geom;
                                 `;
 
-                                console.log("OVERPASS QUERY");
-                                console.log(overpassQuery);
+                                //console.log("OVERPASS QUERY");
+                                //console.log(overpassQuery);
 
                                 var response = await getGeoJSON_OSM(overpassQuery);//await axios.post('https://overpass-api.de/api/interpreter', overpassQuery);
 
@@ -4425,17 +4440,17 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
 
                         var intersection = null;
 
-                        console.log("currentLocusGeoJSON.geometry.type");
-                        console.log(currentLocusGeoJSON.geometry.type);
+                        //console.log("currentLocusGeoJSON.geometry.type");
+                        //console.log(currentLocusGeoJSON.geometry.type);
 
                         if (currentLocusGeoJSON.geometry.type === "Point") {
-                            console.log("Il currentLocusGeoJSON è un punto");
+                            //console.log("Il currentLocusGeoJSON è un punto");
                             intersection = turfFunctions.booleanPointInPolygon(currentLocusGeoJSON, geojsonObject);
                             //console.log("INTERSECTION");
                             //console.log(intersection);
                         } else if (currentLocusGeoJSON.geometry.type === "LineString") {
                             //Distinguere se il geojsonObject è un polygon o un multipolygon
-                            console.log("Il currentLocusGeoJSON è una linea");
+                            //console.log("Il currentLocusGeoJSON è una linea");
 
                             if (geojsonObject.geometry.type === "Polygon") {
                                 //console.log("il geojsonObject è un polygon");
@@ -4478,12 +4493,12 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                                 }
 
                                 intersection = doesIntersect;*/
-                                console.log("INTERSECTION");
-                                console.log(intersection);
+                                //console.log("INTERSECTION");
+                                //console.log(intersection);
                             }
 
                         } else if (currentLocusGeoJSON.geometry.type === "MultiLineString") {
-                            console.log("SONO IN UNA MULTILINESTRING");
+                            //console.log("SONO IN UNA MULTILINESTRING");
 
                             //console.log(JSON.stringify(currentLocusGeoJSON));
                             //console.log("\n\n\ngeojsonObject");
@@ -4496,15 +4511,15 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                             intersection = turfFunctions.intersect(geojsonObject, polygon);
 
                         } else {
-                            console.log("Non è un nessuna delle geometrie sopra");
+                            //console.log("Non è un nessuna delle geometrie sopra");
                             intersection = turfFunctions.intersect(geojsonObject, currentLocusGeoJSON);
-                            console.log("INTERSECTION");
-                            console.log(JSON.stringify(intersection));
+                            //console.log("INTERSECTION");
+                            //console.log(JSON.stringify(intersection));
 
                             if (intersection) {
                                 // Calcola l'area del poligono
                                 const area = turfFunctions.area(intersection);
-                                console.log('Area del poligono:', area, 'metri quadrati');
+                                //console.log('Area del poligono:', area, 'metri quadrati');
                             }
                         }
 
@@ -4521,11 +4536,11 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                         };
 
                         if (currentLocusGeoJSON.geometry.type === "Point") {
-                            console.log("CONTROLLO SE UN PUNTO STA IN UN POLIGONO booleanPointInPolygon!");
+                            //console.log("CONTROLLO SE UN PUNTO STA IN UN POLIGONO booleanPointInPolygon!");
                             //console.log(currentLocusGeoJSON.geometry.coordinates);
                             primoContieneSecondo = turfFunctions.booleanPointInPolygon(currentLocusGeoJSON.geometry, polygonGeoJSON);
                         } else if (currentLocusGeoJSON.geometry.type === "LineString") {
-                            console.log("CONTROLLO SE UNA LINEA STA IN UN POLIGONO!");
+                            ///console.log("CONTROLLO SE UNA LINEA STA IN UN POLIGONO!");
                             primoContieneSecondo = turfFunctions.booleanContains(polygonGeoJSON, currentLocusGeoJSON);
                         } else {
 
@@ -4569,11 +4584,11 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                             //primoContieneSecondo = booleanContains(polygon, geojsonObject);
 
                             try {
-                                console.log("entro nel try");
+                                //console.log("entro nel try");
                                 primoContieneSecondo = turfFunctions.booleanContains(polygon, polygonGeoJSON);
                             } catch (e) {
-                                console.log("entro nel catch, il try non ha funzionato");
-                                console.log(e);
+                                //console.log("entro nel catch, il try non ha funzionato");
+                                //console.log(e);
                                 polygonGeoJSON.coordinates = [polygonGeoJSON.coordinates]
                                 primoContieneSecondo = turfFunctions.booleanContains(polygon, polygonGeoJSON);
                                 //TODO: sistemare -> qua ho un errore
@@ -4587,20 +4602,20 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                         console.log("primoContieneSecondo");
                         console.log(primoContieneSecondo);*/
                         if (intersection && !primoContieneSecondo) {
-                            console.log("I due luoghi intersecano");
+                            //console.log("I due luoghi intersecano");
                             locusInRegion.push(loc);
                             locusInRegionIDs.push(loc["dcterms:title"][0]["resource_id"]);
                         } else {
                             if (primoContieneSecondo) {
-                                console.log("NON AGGIUNGO IL LUOGO POLYGON PERCHE PRIMO CONTIENE SECONDO")
+                                //console.log("NON AGGIUNGO IL LUOGO POLYGON PERCHE PRIMO CONTIENE SECONDO")
 
                                 if (mergedCoordinatesString === mergedCoordinatesGeoJSONString) {
-                                    console.log("AGGIUNGO IL LUOGO POLYGON PERCHE SONO IDENTICI")
+                                    //console.log("AGGIUNGO IL LUOGO POLYGON PERCHE SONO IDENTICI")
                                     locusInRegion.push(loc);
                                     locusInRegionIDs.push(loc["dcterms:title"][0]["resource_id"]);
                                 }
                             } else {
-                                console.log("NON AGGIUNGO IL LUOGO POLYGON ");
+                                //console.log("NON AGGIUNGO IL LUOGO POLYGON ");
                             }
 
                         }
@@ -4620,8 +4635,8 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
             noLocusInRegionNarrative = true;
         }
     } else if (schedaLocusName !== '' && schedaLocusName !== null && schedaLocusName !== undefined) {
-        console.log("LUOGO SELEZIONATO DAL CATALOGO");
-        console.log(schedaLocusName);
+        //console.log("LUOGO SELEZIONATO DAL CATALOGO");
+        //console.log(schedaLocusName);
         locusInRegionIDs.push(schedaLocusName);
     } else {
         //recupero tutti gli id dei locus
