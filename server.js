@@ -259,7 +259,7 @@ const cacheMiddleware = (req, res, next) => {
         if (Array.isArray(cachedDataObj)) {
             totalResults = cachedDataObj.length;
             console.log("CACHE GET - CALCOLO TOTAL RESULTS: " + totalResults);
-            sendInCachePaginatedResponse(res, cachedDataObj, req.query.page, totalResults);
+            sendInCachePaginatedResponse(req, res, cachedDataObj, req.query.page, totalResults);
         } else {
             console.log("CACHE GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
             res.send(cachedData);
@@ -282,7 +282,7 @@ const cacheMiddleware = (req, res, next) => {
             if (Array.isArray(body)) {
                 totalResults = body.length;
                 console.log("NON IN CACHE GET - CALCOLO TOTAL RESULTS: " + totalResults);
-                sendNotInCachePaginatedResponse(res, body, req.query.page, totalResults);
+                sendNotInCachePaginatedResponse(req, res, body, req.query.page, totalResults);
             } else {
                 console.log("NON IN CACHE GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
                 res.sendResponse(JSON.stringify(body));
@@ -298,9 +298,9 @@ const cacheMiddleware = (req, res, next) => {
     }
 };
 
-const pageSize = 20;
+const defaultPageSize = 20;
 
-const sendInCachePaginatedResponse = (res, data, page, totalResults) => {
+const sendInCachePaginatedResponse = (req, res, data, page, totalResults) => {
     console.log("SONO IN SEND PAGINATED RESPONSE");
     console.log("totalResults: " + totalResults);
 
@@ -308,6 +308,11 @@ const sendInCachePaginatedResponse = (res, data, page, totalResults) => {
         console.log("page: " + page);
         console.log("data: " + data.length);
         //console.log(data);
+
+        console.log("req.query.per_page");
+        console.log(req.query.per_page);
+        console.log(parseInt(req.query.per_page));
+        var pageSize = req.query.per_page !== undefined && req.query.per_page !== null && req.query.per_page !== "null" ? parseInt(req.query.per_page) : defaultPageSize;
 
         const startIndex = (page - 1) * pageSize;
         const endIndex = startIndex + pageSize;
@@ -325,7 +330,7 @@ const sendInCachePaginatedResponse = (res, data, page, totalResults) => {
     }
 };
 
-const sendNotInCachePaginatedResponse = (res, data, page, totalResults) => {
+const sendNotInCachePaginatedResponse = (req, res, data, page, totalResults) => {
         console.log("SONO IN SEND PAGINATED RESPONSE");
         console.log("totalResults: " + totalResults);
 
@@ -333,6 +338,12 @@ const sendNotInCachePaginatedResponse = (res, data, page, totalResults) => {
             console.log("page: " + page);
             console.log("data: " + data.length);
             //console.log(data);
+
+            console.log("req.query.per_page");
+            console.log(req.query.per_page);
+            console.log(parseInt(req.query.per_page));
+            var pageSize = req.query.per_page !== undefined && req.query.per_page !== null && req.query.per_page !== "null" ? parseInt(req.query.per_page) : defaultPageSize;
+
 
             const startIndex = (page - 1) * pageSize;
             const endIndex = startIndex + pageSize;
