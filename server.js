@@ -10,6 +10,7 @@ const osmtogeojson = require("osmtogeojson");
 
 const turf = require("@turf/turf");
 const turfFunctions = {...turf};
+const CircularJSON = require('circular-json');
 
 // Importa funzioni specifiche da @turf/turf utilizzando require
 /*const {
@@ -262,7 +263,7 @@ const cacheMiddleware = (req, res, next) => {
             sendInCachePaginatedResponse(req, res, cachedDataObj, req.query.page, totalResults);
         } else {
             console.log("CACHE GET - NON CALCOLO TOTAL RESULTS PERCHE' NON E' UN ARRAY");
-            res.send(cachedData);
+            res.send(cachedDataObj);
         }
 
     } else {
@@ -1213,8 +1214,13 @@ function getResourceFromID(id, res) {
         con.end();
 
         if (res) {
-            res.writeHead(200, {"Content-Type": "application/json"});
-            res.end(JSON.stringify(objectListFinal));
+            //res.writeHead(200, {"Content-Type": "application/json"});
+
+            const jsonString = CircularJSON.stringify(objectListFinal);
+
+            // Invia la risposta JSON al client
+            res.json(JSON.parse(jsonString));
+            //res.json(objectListFinal);
         } else {
             return objectListFinal;
         }
@@ -2262,7 +2268,8 @@ function getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req) {
     join vocabulary on property.vocabulary_id = vocabulary.id
     join resource as r1 on test.resource_id = r1.id
     join resource_class as r2 on r1.resource_class_id = r2.id
-    left join media as m on test.resource_id = m.item_id;
+    left join media as m on test.resource_id = m.item_id
+    where property.local_name IN ("title", "description") and r2.local_name = "PlaceRepresentationCatalogueRecord";
           `;
 
                 makeInnerQuery(con, res, query, list);
@@ -2683,7 +2690,13 @@ function makeInnerQuery(con, res, query, list, returnToClient = true) {
 
         if (returnToClient) {
             console.log("RETURN TO CLIENT TRUE QUINDI LI MANDO AL CLIENT");
-            res.json(objectListFinal);
+
+            try {
+                res.json(objectListFinal);
+            } catch (e) {
+                console.log("SI E' VERIFICATO UN ERRORE QUA - MAKE INNER QUERY RES.JSON");
+                console.log(e)
+            }
         } else {
             console.log("LI INVIO AL METODO CHIAMANTE");
             return objectListFinal;
