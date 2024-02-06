@@ -446,6 +446,16 @@ app.post("/server/get_resource_from_id", express.json(), cacheMiddleware, (req, 
     }
 });
 
+//POST necessaria per ovviare il problema delle strutture circolari nelle relazioni dei luoghi quando si chiede una scheda rappresentazione luogo
+app.post("/server/get_rappr_luogo_from_id", express.json(), cacheMiddleware, (req, res) => {
+    try {
+        const resource_id = req.body.resource_id;
+        getRapprLuogoFromID([resource_id], res);
+    } catch (err) {
+        console.log(err);
+    }
+});
+
 app.post("/server/get_rappr_luogo_locus_filters", express.json(), cacheMiddleware, (req, res) => {
     getRapprLuogoFilmFilters(res, req);
 })
@@ -1221,6 +1231,165 @@ function getResourceFromID(id, res) {
             // Invia la risposta JSON al client
             res.json(JSON.parse(jsonString));
             //res.json(objectListFinal);
+        } else {
+            return objectListFinal;
+        }
+
+
+    });
+
+    return prom.catch(function (err) {
+        con.end();
+
+        if (res) {
+            res.writeHead(200, {"Content-Type": "text"});
+            res.end("Si è verificato un errore nella richiesta");
+        } else {
+            return undefined;
+        }
+
+    });
+};
+
+function getRapprLuogoFromID(id, res) {
+    console.log("ID DA TROVARE");
+    console.log(id);
+
+    var con = mysql.createConnection({
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+    });
+
+
+    var query = `WITH RECURSIVE test as ( 
+        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
+        FROM value as v1 
+        WHERE v1.resource_id IN (${id.join(', ')})
+    UNION
+    (
+      SELECT
+        v2.resource_id,
+        v2.property_id,
+        v2.value_resource_id,
+        v2.value,
+        v2.uri
+      FROM
+        value as v2
+        INNER JOIN test ON test.value_resource_id = v2.resource_id
+    )
+  )
+  select
+    test.resource_id,
+    test.property_id,
+    test.value_resource_id,
+    test.value,
+    property.local_name as property_name,
+    property.label as property_label,
+    vocabulary.prefix as vocabulary_prefix,
+    r2.local_name,
+    r2.label,
+    m.storage_id as media_link,
+    test.uri as uri_link
+  from
+    test
+    join property on test.property_id = property.id
+    join vocabulary on property.vocabulary_id = vocabulary.id
+    join resource as r1 on test.resource_id = r1.id
+    join resource_class as r2 on r1.resource_class_id = r2.id
+    left join media as m on test.resource_id = m.item_id
+    where property.local_name NOT IN("hasMapReferenceData", "mapReferenceIRI", "mapReferenceTextualData", "hasRelationshipsWithLociData") and
+      r2.local_name NOT IN("FilmUnitCatalogueRecord");`;
+
+    //TODO: mettere blocco try-catch
+    console.log("QUERY");
+    console.log(query);
+
+    let prom = new Promise((resolve, reject) => {
+        con.query(query, (err, rows) => {
+            if (err) {
+                return reject(err);
+            } else {
+
+
+                let result = Object.values(JSON.parse(JSON.stringify(rows)));
+                console.log("RESULTS");
+                console.log(result);
+                var objectReversed = result.reverse();
+
+                var ids = objectReversed.map(item => item["resource_id"]);
+
+                const setIDs = [...new Set(ids)];
+
+                let object = new Map();
+
+                setIDs.forEach(id => {
+                    var objWithCurrentID = objectReversed.filter(obj => obj["resource_id"] === id);
+                    object.set(id, objWithCurrentID);
+                });
+
+                var arr = {};
+
+                object.forEach((value, key) => {
+                    arr[key] = {};
+                    value.forEach(property => {
+
+                        var propertyObject = {};
+                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+
+                        propertyObject[propertyName] = property;
+
+                        if (arr[key][propertyName] === undefined) {
+                            arr[key][propertyName] = [property];
+                        } else {
+                            arr[key][propertyName].push(property);
+                        }
+                    });
+
+                    object.set(key, arr[key]);
+                });
+
+                object.forEach((value, key) => {
+                    for (let k in value) {
+                        value[k].forEach(prop => {
+                            if (prop.value_resource_id !== null) {
+                                if (prop.value === undefined || prop.value === null) {
+                                    prop.value = [];
+                                    prop.value.push(object.get(prop.value_resource_id));
+                                } else {
+                                    prop.value.push(object.get(prop.value_resource_id));
+                                }
+                            }
+                        });
+                    }
+                });
+
+                var objectListFinal = null;
+
+                if (id.length === 1) {
+                    objectListFinal = object.get(id[0]);
+                } else if (id.length > 1) {
+                    objectListFinal = [];
+                    id.forEach(id_number => {
+                        objectListFinal.push(object.get(id_number));
+                    });
+                }
+
+                resolve({objectListFinal, res});
+            }
+        });
+    });
+
+    return prom.then(function ({objectListFinal, res}) {
+        //console.log("HO OTTWNUTO OBJETCT RESOLVE");
+        //console.log(objectListFinal);
+
+        if (objectListFinal === undefined) {
+            objectListFinal = null;
+        }
+
+        con.end();
+
+        if (res) {
+            res.json(objectListFinal);
         } else {
             return objectListFinal;
         }
