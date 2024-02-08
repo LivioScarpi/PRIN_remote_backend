@@ -1265,8 +1265,8 @@ function getResourceFromID(id, res) {
         con.end();
 
         if (res) {
-            res.writeHead(200, {"Content-Type": "text"});
-            res.end("Si è verificato un errore nella richiesta");
+            //res.writeHead(200, {"Content-Type": "text"});
+            res.json({message: 'Si è verificato un errore nella richiesta'});
         } else {
             return undefined;
         }
@@ -1424,8 +1424,9 @@ function getRapprLuogoFromID(id, res) {
         con.end();
 
         if (res) {
-            res.writeHead(200, {"Content-Type": "text"});
-            res.end("Si è verificato un errore nella richiesta");
+            //res.writeHead(200, {"Content-Type": "text"});
+            res.json({message: 'Si è verificato un errore nella richiesta'});
+
         } else {
             return undefined;
         }
@@ -1582,8 +1583,10 @@ function getSchedaLocusFromID(id, res) {
         con.end();
 
         if (res) {
-            res.writeHead(200, {"Content-Type": "text"});
-            res.end("Si è verificato un errore nella richiesta");
+            //res.writeHead(200, {"Content-Type": "text"});
+            //res.end("Si è verificato un errore nella richiesta");
+            res.json({message: 'Si è verificato un errore nella richiesta'});
+
         } else {
             return undefined;
         }
@@ -1763,8 +1766,8 @@ WHERE
         con.end();
 
         if (res) {
-            res.writeHead(200, {"Content-Type": "text"});
-            res.end("Si è verificato un errore nella richiesta");
+            //res.writeHead(200, {"Content-Type": "text"});
+            res.json({message: 'Si è verificato un errore nella richiesta'});
         } else {
             return undefined;
         }
@@ -2469,8 +2472,8 @@ function getSchedeAVofFilm(res, req) {
 
 */
             } else {
-                res.writeHead(200, {"Content-Type": "application/json"});
-                res.end(JSON.stringify([]));
+                //res.writeHead(200, {"Content-Type": "application/json"});
+                res.json([]);
 
                 con.end();
             }
@@ -2478,8 +2481,9 @@ function getSchedeAVofFilm(res, req) {
 
         });
     } else {
-        res.writeHead(200, {"Content-Type": "text"});
-        res.end("An error has occurred");
+        //res.writeHead(200, {"Content-Type": "text"});
+        //res.end("An error has occurred");
+        res.json({message: 'Si è verificato un errore nella richiesta'});
 
         con.end();
     }
@@ -2709,16 +2713,17 @@ function getUnitaCatalograficheOfFilm(res, req) {
 */
 
             } else {
-                res.writeHead(200, {"Content-Type": "application/json"});
-                res.end(JSON.stringify([]));
+                //res.writeHead(200, {"Content-Type": "application/json"});
+                res.json([]);
 
                 con.end();
             }
 
         });
     } else {
-        res.writeHead(200, {"Content-Type": "text"});
-        res.end("An error has occurred");
+        //res.writeHead(200, {"Content-Type": "text"});
+        //res.end("An error has occurred");
+        res.json({message: 'Si è verificato un errore nella richiesta'});
 
         con.end();
     }
@@ -2806,16 +2811,17 @@ function getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req) {
                 makeInnerQuery(con, res, query, list);
 
             } else {
-                res.writeHead(200, {"Content-Type": "application/json"});
-                res.end(JSON.stringify([]));
+                //res.writeHead(200, {"Content-Type": "application/json"});
+                res.json([]);
 
                 con.end();
             }
 
         });
     } else {
-        res.writeHead(200, {"Content-Type": "text"});
-        res.end("An error has occurred");
+        //res.writeHead(200, {"Content-Type": "text"});
+        //res.end("An error has occurred");
+        res.json({message: 'Si è verificato un errore nella richiesta'});
 
         con.end();
     }
@@ -2937,16 +2943,16 @@ function getFilmFilters(res, req) {
         //console.log("LISTA IDDDDDD");
         //console.log(list);
 
-        res.writeHead(200, {"Content-Type": "application/json"});
-        res.end(JSON.stringify(result));
+        //res.writeHead(200, {"Content-Type": "application/json"});
+        res.json(result);
 
         con.end();
     });
 
 
     filters.catch(function ({list, res}) {
-        res.writeHead(200, {"Content-Type": "text"});
-        res.end("An error has occurred");
+        //res.writeHead(200, {"Content-Type": "text"});
+        res.json({message: 'Si è verificato un errore nella richiesta'});
 
         con.end();
     });
@@ -3044,8 +3050,8 @@ function getLocusTypes(res, req) {
             // Restituisci i risultati della terza query al frontend
             console.log('Risultati finali da restituire al frontend:', results);
 
-            res.writeHead(200, {"Content-Type": "application/json"});
-            res.end(JSON.stringify(results));
+            //res.writeHead(200, {"Content-Type": "application/json"});
+            res.json(results);
 
         }
     }
@@ -3116,14 +3122,15 @@ WHERE p.local_name <> "hasRelationshipsWithLociData"`;
             //console.log("LISTA IDDDDDD");
             //console.log(list);
 
-            res.writeHead(200, {"Content-Type": "application/json"});
-            res.end(JSON.stringify(list));
+            //res.writeHead(200, {"Content-Type": "application/json"});
+            res.json(list);
 
             con.end();
         });
     } else {
-        res.writeHead(200, {"Content-Type": "text"});
-        res.end("An error has occurred");
+        //res.writeHead(200, {"Content-Type": "text"});
+        res.json({message: 'Si è verificato un errore nella richiesta'});
+
 
         con.end();
     }
@@ -3888,7 +3895,7 @@ async function searchLocusWrapper(res, req) {
                         return titleA.localeCompare(titleB);
                     });
 
-                    res.writeHead(200, {"Content-Type": "application/json"});
+                    //res.writeHead(200, {"Content-Type": "application/json"});
                     res.json(locusObjectsResult);
 
                 }
@@ -4133,8 +4140,8 @@ async function searchFilm(res, req, filters = null) {
                     makeInnerQuery(con, res, query, list);
 
                 } else {
-                    res.writeHead(200, {"Content-Type": "application/json"});
-                    res.end(JSON.stringify([]));
+                    //res.writeHead(200, {"Content-Type": "application/json"});
+                    res.json([]);
 
                     con.end();
                 }
@@ -4178,8 +4185,8 @@ async function getFilmsOfLocusByLocusID(res, req, filters = null, returnToClient
         console.log("ERROR: missing locus id");
 
         if (returnToClient) {
-            res.writeHead(200, {"Content-Type": "application/json"});
-            res.end(JSON.stringify([]));
+            //res.writeHead(200, {"Content-Type": "application/json"});
+            res.json([]);
         } else {
             return [];
         }
@@ -4289,8 +4296,8 @@ async function getFilmsOfLocusByLocusID(res, req, filters = null, returnToClient
                         filmInLocus = getFilmsOfLocus(results.map(obj => obj.film_resource_id), con, res, filters);
                     } else {
                         con.end();
-                        res.writeHead(200, {"Content-Type": "application/json"});
-                        res.end(JSON.stringify([]));
+                        //res.writeHead(200, {"Content-Type": "application/json"});
+                        res.json([]);
                     }
                 } else {
                     con.end();
@@ -4327,8 +4334,8 @@ function getLocusOfFilmByFilmID(res, req) {
 
     if (!body.film_id) {
         console.log("ERROR: missing film id");
-        res.writeHead(200, {"Content-Type": "application/json"});
-        res.end(JSON.stringify([]));
+        //res.writeHead(200, {"Content-Type": "application/json"});
+        res.json([]);
     } else {
         console.log("Film ID present");
         var con = mysql.createConnection({
@@ -4449,8 +4456,8 @@ function getLocusOfFilmByFilmID(res, req) {
                 // Restituisci i risultati della terza query al frontend
                 console.log('Risultati finali da restituire al frontend:', results);
 
-                res.writeHead(200, {"Content-Type": "application/json"});
-                res.end(JSON.stringify(results));
+                //res.writeHead(200, {"Content-Type": "application/json"});
+                res.json(results);
 
             }
         }
@@ -4471,8 +4478,8 @@ function getUCofFilmWithPresentPerson(res, req) {
     // qua dò per scontato di dover avere sia il nome interprete che il nome del personaggio
     if (!body.film_id || !body.cast_member_name || !body.character_name) {
         console.log("ERROR: missing parameter");
-        res.writeHead(200, {"Content-Type": "application/json"});
-        res.end(JSON.stringify([]));
+        //res.writeHead(200, {"Content-Type": "application/json"});
+        res.json([]);
     } else {
         console.log("Parameters ok");
         var con = mysql.createConnection({
@@ -4755,8 +4762,8 @@ async function getRapprLuogoFilmFilters(res, req, filters = null) {
                             console.log('Risultati finali da restituire al frontend:', results);
 
                             if (filters === null) {
-                                res.writeHead(200, {"Content-Type": "application/json"});
-                                res.end(JSON.stringify(results));
+                                //res.writeHead(200, {"Content-Type": "application/json"});
+                                res.json(results);
                             } else {
                                 console.log("Torno i risultati alla promessa");
                                 resolve(results);
