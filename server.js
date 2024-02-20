@@ -2502,7 +2502,238 @@ function getUnitaCatalograficheOfFilm(res, req) {
     console.log(req.body.film_id);
 
     if (req.body.film_id) {
+        const queries = [`START TRANSACTION`,
+
+            `SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=${req.body.film_id}`,
+
+            `SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=2801
+            UNION
+            SELECT v.resource_id FROM value v JOIN property p on v.property_id = p.id WHERE value_resource_id IN (
+                SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=2801)
+            AND p.local_name = "hasLinkedFilmUnitCatalogueRecord"`];
+
+        var q = `
+                    WITH RECURSIVE test as ( 
+                        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
+                        FROM value as v1 
+                        WHERE v1.resource_id IN (
+                            SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=2801
+                            UNION
+                            SELECT v.resource_id FROM value v JOIN property p on v.property_id = p.id WHERE value_resource_id IN (
+                                SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=2801)
+                            AND p.local_name = "hasLinkedFilmUnitCatalogueRecord"
+                        )
+                    UNION
+                    (
+                      SELECT
+                        v2.resource_id,
+                        v2.property_id,
+                        v2.value_resource_id,
+                        v2.value,
+                        v2.uri
+                      FROM
+                        value as v2
+                        INNER JOIN test ON test.value_resource_id = v2.resource_id
+                    )
+                  )
+                  select
+                    test.resource_id,
+                    test.property_id,
+                    test.value_resource_id,
+                    test.value,
+                    property.local_name as property_name,
+                    property.label as property_label,
+                    vocabulary.prefix as vocabulary_prefix,
+                    r2.local_name,
+                    r2.label,
+                    m.storage_id as media_link,
+                    test.uri as uri_link
+                  from
+                    test
+                    join property on test.property_id = property.id
+                    join vocabulary on property.vocabulary_id = vocabulary.id
+                    join resource as r1 on test.resource_id = r1.id
+                    join resource_class as r2 on r1.resource_class_id = r2.id
+                    left join media as m on test.resource_id = m.item_id
+                    where property.local_name NOT IN("hasMapReferenceData", "mapReferenceIRI", "mapReferenceTextualData", "hasRelationshipsWithLociData", "locusLocatedIn", "locusIsPartOf", "hasLinkedFilmCopyCatalogueRecord")
+                  ;`;
+
+        //where property.local_name NOT IN ("hasLinkedFilmUnitCatalogueRecord")
+
+        queries.push(q);
+
+        queries.push("COMMIT;");
+
+        var con = mysql.createConnection({
+            host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+        });
+
+
+        var results = []; // Array per salvare i risultati della terza query
+        var listIDsUC = [];
+        var list = [];
+
+        function executeBatchQueries(queries, index = 0) {
+            if (index < queries.length) {
+                const query = queries[index];
+                con.query(query, (error, queryResults) => {
+                    if (error) {
+                        con.rollback(() => {
+                            console.error('Errore nell\'esecuzione della query:', error);
+                            con.end();
+                        });
+                    } else {
+                        console.log("INDEX: " + index);
+
+                        //console.log('Query eseguita con successo:', query);
+                        if (index === 3) { // Verifica se questa è la terza query (l'indice 2)
+                            //console.log('Risultati della terza query:', queryResults);
+                            results = queryResults;
+                            //console.log("results");
+                            //console.log(results);
+                        } else if(index === 2){
+                            list = queryResults.map(res => res.resource_id);;
+                            //console.log("list");
+                            //console.log(list);
+                        } else if (index === 1) {
+                            //console.log("\n\nLISTA IDS LUOGHI CON TIPO DATO");
+                            listIDsUC = queryResults.map(res => res.resource_id);;
+                            //console.log("listIDsUC");
+                            //console.log(listIDsUC);
+                            //console.log("LIST");
+                            //console.log(list);
+                        }
+                    }
+                    executeBatchQueries(queries, index + 1);
+                });
+            } else {
+                // Chiudi la connessione quando tutte le query sono state eseguite
+                con.end();
+                // Restituisci i risultati della terza query al frontend
+                //console.log('Risultati finali da restituire al frontend:', results);
+
+                let result = Object.values(JSON.parse(JSON.stringify(results)));
+
+                console.log("\n\n\nRESULT QUA!!!");
+                console.log(result);
+
+                var objectReversed = result.reverse();
+
+                var ids = objectReversed.map(item => item["resource_id"]);
+
+                const setIDs = [...new Set(ids)];
+
+                let object = new Map();
+
+                setIDs.forEach(id => {
+                    var objWithCurrentID = objectReversed.filter(obj => obj["resource_id"] === id);
+                    object.set(id, objWithCurrentID);
+                });
+
+                var arr = {};
+
+                object.forEach((value, key) => {
+                    arr[key] = {};
+                    value.forEach(property => {
+
+                        var propertyObject = {};
+                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
+
+                        propertyObject[propertyName] = property;
+
+                        if (arr[key][propertyName] === undefined) {
+                            arr[key][propertyName] = [property];
+                        } else {
+                            arr[key][propertyName].push(property);
+                        }
+                    });
+
+                    object.set(key, arr[key]);
+                });
+
+                object.forEach((value, key) => {
+                    for (let k in value) {
+                        value[k].forEach(prop => {
+                            if (prop.value_resource_id !== null) {
+                                if (prop.value === undefined || prop.value === null) {
+                                    prop.value = [];
+                                    prop.value.push(object.get(prop.value_resource_id));
+                                } else {
+                                    prop.value.push(object.get(prop.value_resource_id));
+                                }
+                            }
+                        });
+                    }
+                });
+
+                var objectListFinal = [];
+
+                console.log("\n\nLIST QUA: ");
+                console.log(list);
+
+                list.forEach(id => {
+                    objectListFinal.push(object.get(id));
+                })
+
+                //Ordino in ordine alfabetico
+                objectListFinal.sort((a, b) => {
+                    const titleA = a['dcterms:title'][0]['value'].split(':')[1].trim();
+                    const titleB = b['dcterms:title'][0]['value'].split(':')[1].trim();
+
+                    // Usa localeCompare per ordinare in base al titolo (ignorando maiuscole/minuscole)
+                    return titleA.localeCompare(titleB);
+                });
+
+                console.log("\n\n\nobjectListFinal");
+                console.log(objectListFinal);
+
+                console.log("\n\n\nlistIDsUC");
+                console.log(listIDsUC);
+
+                var listUCs = objectListFinal.filter(obj => {
+                    return listIDsUC.includes(obj["dcterms:title"][0]["resource_id"])
+                });
+
+                var listRappresentazioniLuogo = objectListFinal.filter(obj => {
+                    return !listIDsUC.includes(obj["dcterms:title"][0]["resource_id"])
+                });
+
+                console.log("\n\nLIST UCs");
+                console.log(listUCs);
+
+
+                console.log("\n\nlistRappresentazioniLuogo");
+                console.log(listRappresentazioniLuogo);
+
+
+                listRappresentazioniLuogo.forEach(rappr => {
+                    var ucID = rappr["precro:hasLinkedFilmUnitCatalogueRecord"][0]["value"][0]["dcterms:title"][0]["resource_id"];
+                    console.log("ucID: " + ucID);
+
+                    var ucObjectIndex = listUCs.findIndex(uc => uc["dcterms:title"][0]["resource_id"] === ucID);
+                    console.log("ucObjectIndex: ", ucObjectIndex);
+
+                    if(ucObjectIndex !== -1){
+                        rappr["precro:hasLinkedFilmUnitCatalogueRecord"] = null;
+                        listUCs[ucObjectIndex].rappresentazioneLuogo = rappr;
+                        console.log("HO AGGIUNTO LA RAPPRESENTAZIONE LUOGO ALL'UC");
+                    }
+                });
+
+                console.log("\n\nRAPPR LUOGO");
+                res.json(listUCs);
+
+                //res.json(listRappresentazioniLuogo);
+                //res.writeHead(200, {"Content-Type": "application/json"});
+
+
+            }
+        }
+
+        executeBatchQueries(queries);
+
         //chiedo la lista di film
+        /*
         var query = `SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id =${req.body.film_id}`;
 
         let idsSchedeAVofFilm = new Promise((resolve, reject) => {
@@ -2519,7 +2750,7 @@ function getUnitaCatalograficheOfFilm(res, req) {
         });
 
         //chiedo tutti i dati dei film
-        idsSchedeAVofFilm.then(function ({list, res}) {
+        idsSchedeAVofFilm.then(async function ({list, res}) {
             console.log("RES NEL THEN");
 
             list = list.map(film => film.resource_id);
@@ -2572,148 +2803,12 @@ function getUnitaCatalograficheOfFilm(res, req) {
                 //console.log("QUERY");
                 //console.log(query);
 
-                makeInnerQuery(con, res, query, list);
+                var listUCs = await makeInnerQuery(con, res, query, list, false);
 
-                /*
-                let prom = new Promise((resolve, reject) => {
-                    con.query(
-                        query,
-                        (err, rows) => {
-                            // console.log(rows);
-                            if (err) {
-                                return reject(err);
-                            } else {
-                                let result = Object.values(JSON.parse(JSON.stringify(rows)));
+                console.log("LISTA DELLE UC");
+                console.log(listUCs);
 
-                                object = result.reverse();
-                                var object = object.reduce(function (r, a) {
-                                    r[a.resource_id] = r[a.resource_id] || [];
-                                    r[a.resource_id].push(a);
-                                    return r;
-                                }, Object.create(null));
 
-                                var arr = {};
-
-                                for (let key in object) {
-                                    arr[key] = {};
-                                    object[key].forEach(property => {
-
-                                        var propertyObject = {};
-                                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
-
-                                        propertyObject[propertyName] = property;
-
-                                        if (arr[key][propertyName] === undefined) {
-                                            arr[key][propertyName] = [property];
-                                        } else {
-                                            arr[key][propertyName].push(property);
-                                        }
-                                        // arr[key][propertyName] = property;
-                                    });
-                                }
-
-                                for (let key in arr) {
-                                    //console.log("KEY: " + key);
-                                    //console.log(arr[key]);
-
-                                    for (let internalKey in arr[key]) {
-                                        var property = arr[key][internalKey];
-                                        //console.log("SONO QUA");
-                                        //console.log(property);
-
-                                        property.forEach(prop => {
-                                            if (prop.value_resource_id !== null) {
-                                                //la property collega una risorsa
-
-                                                //console.log("\n\n\n\nORA PROP VALUE E'");
-                                                //console.log(prop.value);
-
-                                                if (prop.value === undefined || prop.value === null) {
-                                                    prop.value = [];
-                                                    //console.log("\nDEVO METTERE UN OGGETTO");
-
-                                                    //console.log("\n\n STAMPO")
-                                                    //console.log(arr[prop.value_resource_id]);
-                                                    prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
-                                                } else {
-                                                    //console.log("\nDEVO METTERE UN OGGETTO");
-                                                    //console.log("\n\n STAMPO")
-                                                    //console.log(arr[prop.value_resource_id]);
-                                                    prop.value.push(JSON.parse(JSON.stringify(arr[prop.value_resource_id])));
-                                                }
-                                            }
-                                        });
-
-                                    }
-                                }
-                                ;
-
-                                finalObject = arr;
-
-                                var objectList = [];
-
-                                for (let key in object) {
-                                    //console.log("KEY: " + key);
-                                    //console.log(list);
-                                    if (list.includes(parseInt(key))) {
-                                        objectList.push(object[key]);
-                                        // console.log(object[key]);
-                                        // var finalObject = {}
-
-                                        // object[key].forEach(property => {
-                                        //   var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
-                                        //   finalObject[propertyName] = property;
-                                        // });
-
-                                        // console.log("FINAL OBJECT");
-                                        // console.log(finalObject);
-
-                                        // objectList.push(finalObject);
-                                    }
-                                }
-
-                                var objectListFinal = [];
-
-                                objectList.forEach(object => {
-                                    var finalObject = {};
-
-                                    object.forEach(property => {
-                                        var propertyName = property["vocabulary_prefix"] + ":" + property["property_name"];
-
-                                        if (!finalObject[propertyName]) {
-                                            finalObject[propertyName] = [property];
-                                        } else {
-                                            finalObject[propertyName].push(property);
-                                        }
-
-                                    });
-
-                                    objectListFinal.push(finalObject);
-                                });
-
-                                resolve({objectListFinal, res});
-                            }
-                        });
-                });
-
-                prom.then(
-                    function ({objectListFinal, res}) {
-                        // console.log("RES NEL THEN");
-                        // console.log(res);
-                        console.log("HO OTTWNUTO OBJETCT RESOLVE");
-                        res.writeHead(200, {"Content-Type": "application/json"});
-                        res.end(
-                            JSON.stringify(objectListFinal)
-                        );
-                    });
-
-                prom.catch(function (err) {
-                    res.writeHead(200, {"Content-Type": "text"});
-                    res.end(
-                        "Si è verificato un errore nella richiesta"
-                    );
-                });
-*/
 
             } else {
                 //res.writeHead(200, {"Content-Type": "application/json"});
@@ -2723,6 +2818,8 @@ function getUnitaCatalograficheOfFilm(res, req) {
             }
 
         });
+
+         */
     } else {
         //res.writeHead(200, {"Content-Type": "text"});
         //res.end("An error has occurred");
