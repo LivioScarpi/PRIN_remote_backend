@@ -2506,10 +2506,10 @@ function getUnitaCatalograficheOfFilm(res, req) {
 
             `SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=${req.body.film_id}`,
 
-            `SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=2801
+            `SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=${req.body.film_id}
             UNION
             SELECT v.resource_id FROM value v JOIN property p on v.property_id = p.id WHERE value_resource_id IN (
-                SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=2801)
+                SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=${req.body.film_id})
             AND p.local_name = "hasLinkedFilmUnitCatalogueRecord"`];
 
         var q = `
@@ -2517,10 +2517,10 @@ function getUnitaCatalograficheOfFilm(res, req) {
                         SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
                         FROM value as v1 
                         WHERE v1.resource_id IN (
-                            SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=2801
+                            SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=${req.body.film_id}
                             UNION
                             SELECT v.resource_id FROM value v JOIN property p on v.property_id = p.id WHERE value_resource_id IN (
-                                SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=2801)
+                                SELECT distinct uc.resource_id FROM value as f join value as fc on f.resource_id = fc.value_resource_id join value as uc on fc.resource_id = uc.value_resource_id where f.resource_id=${req.body.film_id})
                             AND p.local_name = "hasLinkedFilmUnitCatalogueRecord"
                         )
                     UNION
@@ -2591,15 +2591,17 @@ function getUnitaCatalograficheOfFilm(res, req) {
                             results = queryResults;
                             //console.log("results");
                             //console.log(results);
-                        } else if(index === 2){
-                            list = queryResults.map(res => res.resource_id);;
-                            //console.log("list");
-                            //console.log(list);
+                        } else if (index === 2) {
+                            list = queryResults.map(res => res.resource_id);
+
+                            console.log("list");
+                            console.log(list);
                         } else if (index === 1) {
                             //console.log("\n\nLISTA IDS LUOGHI CON TIPO DATO");
-                            listIDsUC = queryResults.map(res => res.resource_id);;
-                            //console.log("listIDsUC");
-                            //console.log(listIDsUC);
+                            listIDsUC = queryResults.map(res => res.resource_id);
+
+                            console.log("listIDsUC");
+                            console.log(listIDsUC);
                             //console.log("LIST");
                             //console.log(list);
                         }
@@ -2707,13 +2709,17 @@ function getUnitaCatalograficheOfFilm(res, req) {
 
 
                 listRappresentazioniLuogo.forEach(rappr => {
+                    console.log("\nSTAMPO rappr");
+                    console.log(rappr);
+
                     var ucID = rappr["precro:hasLinkedFilmUnitCatalogueRecord"][0]["value"][0]["dcterms:title"][0]["resource_id"];
                     console.log("ucID: " + ucID);
 
                     var ucObjectIndex = listUCs.findIndex(uc => uc["dcterms:title"][0]["resource_id"] === ucID);
                     console.log("ucObjectIndex: ", ucObjectIndex);
+                    console.log(ucObjectIndex === -1);
 
-                    if(ucObjectIndex !== -1){
+                    if (ucObjectIndex !== -1) {
                         rappr["precro:hasLinkedFilmUnitCatalogueRecord"] = null;
                         listUCs[ucObjectIndex].rappresentazioneLuogo = rappr;
                         console.log("HO AGGIUNTO LA RAPPRESENTAZIONE LUOGO ALL'UC");
@@ -2721,7 +2727,92 @@ function getUnitaCatalograficheOfFilm(res, req) {
                 });
 
                 console.log("\n\nRAPPR LUOGO");
-                res.json(listUCs);
+
+                if (req.body.locus_id) {
+                    var locusID = req.body.locus_id;
+                    var ucCameraPlacement = [];
+                    var ucNarrativePlace = [];
+                    var otherUC = [];
+
+                    //Ciclo tutte le UC e controllo quali sono girate a, ambientate a o fanno parte di una terza lista
+                    listUCs.forEach(uc => {
+                        var alreadyAddedInCameraPlacement = false;
+                        var alreadyAddedInNarrativePlace = false;
+                        var connectedRapprLuogo = uc.rappresentazioneLuogo;
+
+                        //TODO: SISTEMARE, DEVO CONSIDERARE IL FATTO DI AVERE PIU' LUOGHI IN UN ATTRIBUTO!!!!!
+                        //TODO: usare questo caso per vedere: http://localhost:3000/pages/film-summary-sheet/551/4972
+                        if (connectedRapprLuogo && connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement']) {
+                            console.log("\n1 - sono in camera placement");
+                            console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'][0]);
+                            console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'][0]['value_resource_id']);
+
+                            if(locusID === connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'][0]['value_resource_id']){
+                                ucCameraPlacement.push(uc);
+                                alreadyAddedInCameraPlacement = true;
+                                console.log("ho aggiunto a camera placement");
+                            }
+                        }
+                        //TODO: SISTEMARE, DEVO CONSIDERARE IL FATTO DI AVERE PIU' LUOGHI IN UN ATTRIBUTO!!!!!
+
+                        if (connectedRapprLuogo && connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject']) {
+                            console.log("\n2 - sono in camera placement");
+                            console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]);
+                            console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value_resource_id']);
+
+                            if(!alreadyAddedInCameraPlacement && locusID === connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value_resource_id']){
+                                ucCameraPlacement.push(uc);
+                                alreadyAddedInCameraPlacement = true;
+                                console.log("ho aggiunto a camera placement");
+                            }
+                        }
+                        //TODO: SISTEMARE, DEVO CONSIDERARE IL FATTO DI AVERE PIU' LUOGHI IN UN ATTRIBUTO!!!!!
+
+                        if (connectedRapprLuogo && connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace']) {
+                            console.log("\n3 - sono in camera placement");
+                            console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]);
+                            console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value_resource_id']);
+
+                            if(!alreadyAddedInCameraPlacement && locusID === connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value_resource_id']){
+                                ucCameraPlacement.push(uc);
+                                alreadyAddedInCameraPlacement = true;
+                                console.log("ho aggiunto a camera placement");
+                            }
+                        }
+                        //TODO: SISTEMARE, DEVO CONSIDERARE IL FATTO DI AVERE PIU' LUOGHI IN UN ATTRIBUTO!!!!!
+
+                        //Luogo narrativo
+                        if (connectedRapprLuogo && connectedRapprLuogo["precro:hasContextualElementsData"] && connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'] && connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace']) {
+                            console.log("\n4 - sono narrative place");
+                            console.log(connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]);
+                            console.log(connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]['value_resource_id']);
+
+                            if(!alreadyAddedInCameraPlacement && locusID === connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]['value_resource_id']){
+                                ucNarrativePlace.push(uc);
+                                alreadyAddedInNarrativePlace = true;
+                                console.log("ho aggiunto a narrative place");
+                            }
+                        }
+
+                        if(!alreadyAddedInCameraPlacement && !alreadyAddedInNarrativePlace){
+                            console.log("\naggiungo l'uc alla lista delle restanti");
+                            otherUC.push(uc);
+                        }
+                    });
+
+                    var ucObject = {
+                        ucCameraPlacement: ucCameraPlacement,
+                        ucNarrativePlace: ucNarrativePlace,
+                        otherUC: otherUC
+                    }
+
+                    console.log("INVIO LE UC SEPARATE");
+                    console.log(ucObject);
+                    res.json(ucObject);
+
+                } else {
+                    res.json(listUCs);
+                }
 
                 //res.json(listRappresentazioniLuogo);
                 //res.writeHead(200, {"Content-Type": "application/json"});
@@ -3411,16 +3502,16 @@ async function searchLocusWrapper(res, req) {
             //Filtro per reale immaginario
             console.log("body.real_immaginary");
             console.log(body.real_immaginary);
-            if(body.real_immaginary){
+            if (body.real_immaginary) {
 
                 var filter = body.real_immaginary === "real" ? "Reale" : "Immaginario";
                 var locusListFinal = [];
                 objectListFinal.forEach(obj => {
-                    if(obj["filocro:hasBasicCharacterizationData"] && obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]){
+                    if (obj["filocro:hasBasicCharacterizationData"] && obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]) {
                         //console.log("ECCOLO!!!");
                         //console.log(obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]);
 
-                        if(obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"][0]["value"] === filter){
+                        if (obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"][0]["value"] === filter) {
                             locusListFinal.push(obj);
                         }
                     }
@@ -3621,16 +3712,16 @@ async function searchLocusWrapper(res, req) {
 
                     console.log("body.real_immaginary");
                     console.log(body.real_immaginary);
-                    if(body.real_immaginary){
+                    if (body.real_immaginary) {
 
                         var filter = body.real_immaginary === "real" ? "Reale" : "Immaginario";
                         var locusListFinal = [];
                         objectListFinal.forEach(obj => {
-                            if(obj["filocro:hasBasicCharacterizationData"] && obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]){
+                            if (obj["filocro:hasBasicCharacterizationData"] && obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]) {
                                 //console.log("ECCOLO!!!");
                                 //console.log(obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]);
 
-                                if(obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"][0]["value"] === filter){
+                                if (obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"][0]["value"] === filter) {
                                     locusListFinal.push(obj);
                                 }
                             }
@@ -3837,16 +3928,16 @@ async function searchLocusWrapper(res, req) {
                     //Filtro per reale immaginario
                     console.log("body.real_immaginary");
                     console.log(body.real_immaginary);
-                    if(body.real_immaginary){
+                    if (body.real_immaginary) {
 
                         var filter = body.real_immaginary === "real" ? "Reale" : "Immaginario";
                         var locusListFinal = [];
                         objectListFinal.forEach(obj => {
-                            if(obj["filocro:hasBasicCharacterizationData"] && obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]){
+                            if (obj["filocro:hasBasicCharacterizationData"] && obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]) {
                                 //console.log("ECCOLO!!!");
                                 //console.log(obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]);
 
-                                if(obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"][0]["value"] === filter){
+                                if (obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"][0]["value"] === filter) {
                                     locusListFinal.push(obj);
                                 }
                             }
@@ -4112,16 +4203,16 @@ async function searchLocusWrapper(res, req) {
                     //Filtro per reale immaginario
                     console.log("body.real_immaginary");
                     console.log(body.real_immaginary);
-                    if(body.real_immaginary){
+                    if (body.real_immaginary) {
 
                         var filter = body.real_immaginary === "real" ? "Reale" : "Immaginario";
                         var locusListFinal = [];
                         objectListFinal.forEach(obj => {
-                            if(obj["filocro:hasBasicCharacterizationData"] && obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]){
+                            if (obj["filocro:hasBasicCharacterizationData"] && obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]) {
                                 //console.log("ECCOLO!!!");
                                 //console.log(obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"]);
 
-                                if(obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"][0]["value"] === filter){
+                                if (obj["filocro:hasBasicCharacterizationData"][0]["value"][0]["filocro:realityStatus"][0]["value"] === filter) {
                                     locusListFinal.push(obj);
                                 }
                             }
@@ -6201,7 +6292,7 @@ async function getRapprLuogo(res, req) {
                                             console.log(date);
 
                                             //TEST CON ALTRE DATE
-                                            date = "30 a.C. - 22 a.C. ca. - (Commento)"
+                                            //date = "30 a.C. - 22 a.C. ca. - (Commento)"
 
 
                                             const regexString = /\b(\d{1,4}\s?(?:a\.C\.|d\.C\.)*)\s*(ca\.|)(?=(?:\s|$))/gi;
