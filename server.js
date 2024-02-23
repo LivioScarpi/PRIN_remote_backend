@@ -2779,6 +2779,8 @@ function getUnitaCatalograficheOfFilm(res, req) {
                                 console.log("ho aggiunto a camera placement");
                             }
                         }
+
+                        //TODO: dovrei averlo sistemato
                         //TODO: SISTEMARE, DEVO CONSIDERARE IL FATTO DI AVERE PIU' LUOGHI IN UN ATTRIBUTO!!!!!
 
                         //Luogo narrativo
@@ -2787,11 +2789,19 @@ function getUnitaCatalograficheOfFilm(res, req) {
                             console.log(connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]);
                             console.log(connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]['value_resource_id']);
 
-                            if(!alreadyAddedInCameraPlacement && locusID === connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]['value_resource_id']){
-                                ucNarrativePlace.push(uc);
-                                alreadyAddedInNarrativePlace = true;
-                                console.log("ho aggiunto a narrative place");
-                            }
+                            console.log("CICLO I LUOGHI NARRATIVIDI CONTESTO");
+                            connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'].forEach(narrativePlace => {
+                                //console.log("\nnarrativePlace");
+                                //console.log(narrativePlace);
+
+                                if(!alreadyAddedInCameraPlacement && locusID === narrativePlace['value_resource_id']){
+                                    ucNarrativePlace.push(uc);
+                                    alreadyAddedInNarrativePlace = true;
+                                    console.log("ho aggiunto a narrative place");
+                                }
+                            });
+
+
                         }
 
                         if(!alreadyAddedInCameraPlacement && !alreadyAddedInNarrativePlace){
