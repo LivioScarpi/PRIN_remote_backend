@@ -431,6 +431,15 @@ app.post("/server/get_locus_of_film", express.json(), cacheMiddleware, (req, res
     getLocusOfFilmByFilmID(res, req);
 });
 
+app.post("/server/get_locus_name_from_id", express.json(), cacheMiddleware, (req, res) => {
+    try {
+        const locus_id = req.body.locus_id;
+        getLocusNameFromID(locus_id, res);
+    } catch (err) {
+        console.log(err);
+    }
+});
+
 app.post("/server/get_films_of_locus", express.json(), cacheMiddleware, (req, res) => {
     getFilmsOfLocusByLocusID(res, req, null, true);
 });
@@ -1826,6 +1835,48 @@ function getAllLocusWithMapInfoDB(res, sendToClient = true) {
     return getLocusWithMapInfo("LocusCatalogueRecord", con, res, sendToClient);
 }
 
+function getLocusNameFromID(locus_id, res) {
+    var con = mysql.createConnection({
+        host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
+    });
+
+    //chiedo la lista di film
+    var query = `SELECT v1.value FROM value v JOIN property p ON v.property_id = p.id JOIN value v1 on v.value_resource_id = v1.resource_id join property p1 on v1.property_id=p1.id
+         join resource r ON v.resource_id = r.id JOIN resource_class rc ON r.resource_class_id = rc.id
+         WHERE v.resource_id = ${locus_id} AND p1.local_name = "name" AND rc.local_name="LocusCatalogueRecord";`;
+
+    let locusList = new Promise((resolve, reject) => {
+        con.query(query, (err, rows) => {
+            // console.log(rows);
+            if (err) {
+                return reject(err);
+            } else {
+                let list = Object.values(JSON.parse(JSON.stringify(rows)));
+
+                resolve({list, res});
+            }
+        });
+    });
+
+    //chiedo tutti i dati dei film
+    locusList.then(function ({list, res}) {
+        console.log("RES NEL THEN");
+        console.log(list);
+
+        con.end();
+
+        if(list.length > 0){
+            res.json({name: list[0]["value"]});
+        } else {
+            res.json([]);
+        }
+
+    });
+
+
+};
+
+
 function getFilmsHomepage(className, con, res) {
 
     //chiedo la lista di film
@@ -2747,11 +2798,17 @@ function getUnitaCatalograficheOfFilm(res, req) {
                             console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'][0]);
                             console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'][0]['value_resource_id']);
 
-                            if(locusID === connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'][0]['value_resource_id']){
-                                ucCameraPlacement.push(uc);
-                                alreadyAddedInCameraPlacement = true;
-                                console.log("ho aggiunto a camera placement");
-                            }
+                            console.log("CICLO I LUOGHI NARRATIVIDI CONTESTO");
+                            connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'].forEach(cameraPlacement => {
+                                //console.log("\nnarrativePlace");
+                                //console.log(narrativePlace);
+
+                                if (locusID === cameraPlacement['value_resource_id']) {
+                                    ucCameraPlacement.push(uc);
+                                    alreadyAddedInCameraPlacement = true;
+                                    console.log("ho aggiunto a camera placement");
+                                }
+                            });
                         }
                         //TODO: SISTEMARE, DEVO CONSIDERARE IL FATTO DI AVERE PIU' LUOGHI IN UN ATTRIBUTO!!!!!
 
@@ -2760,11 +2817,19 @@ function getUnitaCatalograficheOfFilm(res, req) {
                             console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]);
                             console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value_resource_id']);
 
-                            if(!alreadyAddedInCameraPlacement && locusID === connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value_resource_id']){
-                                ucCameraPlacement.push(uc);
-                                alreadyAddedInCameraPlacement = true;
-                                console.log("ho aggiunto a camera placement");
-                            }
+                            console.log("CICLO I LUOGHI NARRATIVIDI CONTESTO");
+                            connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'].forEach(displayedObject => {
+                                //console.log("\nnarrativePlace");
+                                //console.log(narrativePlace);
+
+                                if (!alreadyAddedInCameraPlacement && locusID === displayedObject['value_resource_id']) {
+                                    ucCameraPlacement.push(uc);
+                                    alreadyAddedInCameraPlacement = true;
+                                    console.log("ho aggiunto a camera placement");
+                                }
+                            });
+
+
                         }
                         //TODO: SISTEMARE, DEVO CONSIDERARE IL FATTO DI AVERE PIU' LUOGHI IN UN ATTRIBUTO!!!!!
 
@@ -2773,11 +2838,19 @@ function getUnitaCatalograficheOfFilm(res, req) {
                             console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]);
                             console.log(connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value_resource_id']);
 
-                            if(!alreadyAddedInCameraPlacement && locusID === connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value_resource_id']){
-                                ucCameraPlacement.push(uc);
-                                alreadyAddedInCameraPlacement = true;
-                                console.log("ho aggiunto a camera placement");
-                            }
+                            console.log("CICLO I LUOGHI NARRATIVIDI CONTESTO");
+                            connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'].forEach(representedNarrativaPlace => {
+                                //console.log("\nnarrativePlace");
+                                //console.log(narrativePlace);
+
+                                if (!alreadyAddedInCameraPlacement && locusID === representedNarrativaPlace['value_resource_id']) {
+                                    ucCameraPlacement.push(uc);
+                                    alreadyAddedInCameraPlacement = true;
+                                    console.log("ho aggiunto a camera placement");
+                                }
+                            });
+
+
                         }
 
                         //TODO: dovrei averlo sistemato
@@ -2794,7 +2867,7 @@ function getUnitaCatalograficheOfFilm(res, req) {
                                 //console.log("\nnarrativePlace");
                                 //console.log(narrativePlace);
 
-                                if(!alreadyAddedInCameraPlacement && locusID === narrativePlace['value_resource_id']){
+                                if (!alreadyAddedInCameraPlacement && locusID === narrativePlace['value_resource_id']) {
                                     ucNarrativePlace.push(uc);
                                     alreadyAddedInNarrativePlace = true;
                                     console.log("ho aggiunto a narrative place");
@@ -2804,7 +2877,7 @@ function getUnitaCatalograficheOfFilm(res, req) {
 
                         }
 
-                        if(!alreadyAddedInCameraPlacement && !alreadyAddedInNarrativePlace){
+                        if (!alreadyAddedInCameraPlacement && !alreadyAddedInNarrativePlace) {
                             console.log("\naggiungo l'uc alla lista delle restanti");
                             otherUC.push(uc);
                         }
