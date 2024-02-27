@@ -2935,9 +2935,9 @@ function getUnitaCatalograficheOfFilm(res, req) {
             if (list.length > 0) {
 
                 var query = `
-    WITH RECURSIVE test as ( 
-        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri 
-        FROM value as v1 
+    WITH RECURSIVE test as (
+        SELECT v1.resource_id, v1.property_id, v1.value_resource_id, v1.value, v1.uri
+        FROM value as v1
         WHERE v1.resource_id=${list.join(" OR v1.resource_id=")
                     }
     UNION
@@ -3243,26 +3243,32 @@ function getLocusTypes(res, req) {
 
     const queries = [`START TRANSACTION`,
 
-        `CREATE TEMPORARY TABLE IF NOT EXISTS tabella_unica AS
-        SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
-        FROM value v
-         JOIN property p ON v.property_id = p.id;`,
-
-        `SELECT distinct t3.value, t3.local_name, rc.local_name as class_name FROM tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
-        JOIN resource r ON t1.resource_id = r.id JOIN resource_class rc ON r.resource_class_id = rc.id
-                 WHERE t3.local_name = "type" and rc.local_name = "LocusCatalogueRecord"
+        `WITH tabella_unica AS (
+            SELECT v.resource_id, v.property_id, p.local_name, v.value_resource_id, v.value
+            FROM value v
+                     JOIN property p ON v.property_id = p.id
+        )
+        
+        SELECT DISTINCT t4.value, t4.local_name, rc.local_name AS class_name
+        FROM tabella_unica t1
+                 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
+                 JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+                 JOIN tabella_unica t4 ON t3.value_resource_id = t4.resource_id
+                 JOIN resource r ON t1.resource_id = r.id
+                 JOIN resource_class rc ON r.resource_class_id = rc.id
+        WHERE
+            (t4.local_name = 'typeName' AND rc.local_name = 'LocusCatalogueRecord')
         
         UNION
         
-        SELECT distinct t4.value, t4.local_name, rc.local_name as class_name FROM tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id JOIN tabella_unica t4 ON t3.value_resource_id = t4.resource_id
-                                                       JOIN resource r ON t1.resource_id = r.id JOIN resource_class rc ON r.resource_class_id = rc.id
-        WHERE t4.local_name = "typeName" and rc.local_name = "LocusCatalogueRecord"
-        
-        UNION
-        
-        SELECT distinct t3.value, t3.local_name, rc.local_name as class_name FROM tabella_unica t1 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
-                                                                                     JOIN resource r ON t1.resource_id = r.id JOIN resource_class rc ON r.resource_class_id = rc.id
-        WHERE t3.local_name = "type" and rc.local_name = "PlaceRepresentationCatalogueRecord"
+        SELECT DISTINCT t3.value, t3.local_name, rc.local_name AS class_name
+        FROM tabella_unica t1
+                 JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
+                 JOIN tabella_unica t3 ON t2.value_resource_id = t3.resource_id
+                 JOIN resource r ON t1.resource_id = r.id
+                 JOIN resource_class rc ON r.resource_class_id = rc.id
+        WHERE
+            (t3.local_name = 'type' AND rc.local_name IN ('PlaceRepresentationCatalogueRecord', 'LocusCatalogueRecord'))
         
         UNION
         
@@ -3270,10 +3276,7 @@ function getLocusTypes(res, req) {
         UNION
         SELECT distinct value, local_name, null from tabella_unica where local_name = "partOfDayInNarrative"
         UNION
-        SELECT distinct value, local_name, null from tabella_unica where local_name = "weatherConditionsInNarrative";
-        `,
-
-        `DROP TEMPORARY TABLE tabella_unica;`,
+        SELECT distinct value, local_name, null from tabella_unica where local_name = "weatherConditionsInNarrative";`,
 
         `COMMIT;`, // Aggiungi altre query qui
     ];
@@ -3291,7 +3294,7 @@ function getLocusTypes(res, req) {
                     });
                 } else {
                     console.log('Query eseguita con successo:', query);
-                    if (index === 2) { // Verifica se questa è la terza query (l'indice 2)
+                    if (index === 1) { // Verifica se questa è la terza query (l'indice 2)
                         console.log('Risultati della terza query:', queryResults);
 
                         var locusTypeName = queryResults.filter(obj => obj.local_name === "typeName" && obj.class_name === "LocusCatalogueRecord").map(obj => obj.value);
