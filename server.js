@@ -11,7 +11,7 @@ const osmtogeojson = require("osmtogeojson");
 const turf = require("@turf/turf");
 const turfFunctions = {...turf};
 const CircularJSON = require('circular-json');
-
+const util = require('util');
 // Importa funzioni specifiche da @turf/turf utilizzando require
 /*const {
     intersect,search_films
@@ -527,6 +527,7 @@ connection.connect(async (err) => {
         locusRelationshipsDictionary = locusRelationships;
         locusOverTimeRelationshipsDictionary = locusOverTimeRelationships;
 
+
         var prom = createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary, connection);
 
         prom.then(() => {
@@ -565,6 +566,24 @@ connection.connect(async (err) => {
         }).catch((errore) => {
             console.error('Si è verificato un errore:', errore);
         });
+
+        /*
+                const server = app.listen(portNumber, "localhost", () => {
+                    connection.end();
+                    console.log("Connessione chiusa");
+
+                    console.log("Server in ascolto sulla porta " + portNumber);
+                    console.log("DB name: " + dbname);
+
+
+                    // Schedula l'esecuzione del metodo alle 3 di notte (alle 3:00 AM)
+                    cron.schedule('0 3 * * *', updateData);
+
+                    // Aggiornamento delle strutture dati ogni tot millisecondi (ad esempio ogni 24 ore)
+                    //const intervalInMilliseconds = 360000; //1 * 60 * 60 * 1000; // 24 ore
+                    //setInterval(updateData, intervalInMilliseconds);
+                });
+            */
     } catch (error) {
         console.error('Errore durante il recupero delle strutture dati:', error);
     }
@@ -1924,8 +1943,29 @@ WHERE
 
         con.end();
 
+        console.log("PROVO A STAMPARE L'OGGETTO!");
+        console.log(util.inspect(objectListFinal, { depth: null }));
+
+
         if (res) {
-            res.json(objectListFinal);
+            try {
+                res.json(objectListFinal);
+            } catch {
+                var seen = [];
+                const jsonString = JSON.stringify(objectListFinal, (key, value) => {
+                    if (typeof value === 'object' && value !== null) {
+                        if (seen.includes(value)) {
+                            return '[Circular]';
+                        }
+                        seen.push(value);
+                    }
+                    return value;
+                });
+
+                const cleanObject = JSON.parse(jsonString);
+
+                res.json(cleanObject);
+            }
         } else {
             return objectListFinal;
         }
