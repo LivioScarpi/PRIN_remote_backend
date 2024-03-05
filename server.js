@@ -527,7 +527,7 @@ connection.connect(async (err) => {
         locusRelationshipsDictionary = locusRelationships;
         locusOverTimeRelationshipsDictionary = locusOverTimeRelationships;
 
-
+/*
         var prom = createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary, connection);
 
         prom.then(() => {
@@ -566,8 +566,8 @@ connection.connect(async (err) => {
         }).catch((errore) => {
             console.error('Si è verificato un errore:', errore);
         });
+*/
 
-        /*
                 const server = app.listen(portNumber, "localhost", () => {
                     connection.end();
                     console.log("Connessione chiusa");
@@ -583,7 +583,7 @@ connection.connect(async (err) => {
                     //const intervalInMilliseconds = 360000; //1 * 60 * 60 * 1000; // 24 ore
                     //setInterval(updateData, intervalInMilliseconds);
                 });
-            */
+
     } catch (error) {
         console.error('Errore durante il recupero delle strutture dati:', error);
     }
@@ -2143,7 +2143,7 @@ function getFilmsHomepage(className, con, res) {
     join resource as r1 on test.resource_id = r1.id
     join resource_class as r2 on r1.resource_class_id = r2.id
     left join media as m on test.resource_id = m.item_id
-  where property.local_name IN ("title", "hasImageData", "caption", "genre", "hasTypologyData", "hasDirectorData", "directorName");`;
+  where property.local_name IN ("title", "hasImageData", "caption", "genre", "hasTypologyData", "hasDirectorData", "directorName" ,"imagePubliclyAvailable");`;
 
             console.log("QUERY");
             console.log(query);
@@ -2205,7 +2205,7 @@ async function getFilmsOfLocus(list, con, res, filters) {
     join resource as r1 on test.resource_id = r1.id
     join resource_class as r2 on r1.resource_class_id = r2.id
     left join media as m on test.resource_id = m.item_id
-  where property.local_name IN ("title", "hasImageData", "caption", "genre", "hasTypologyData", "hasDirectorData", "directorName");`;
+  where property.local_name IN ("title", "hasImageData", "caption", "genre", "hasTypologyData", "hasDirectorData", "directorName", "imagePubliclyAvailable");`;
 
         console.log("QUERY");
         console.log(query);
@@ -5373,7 +5373,7 @@ async function searchFilm(res, req, filters = null) {
                                 join resource as r1 on test.resource_id = r1.id
                                 join resource_class as r2 on r1.resource_class_id = r2.id
                                 left join media as m on test.resource_id = m.item_id
-                                where property.local_name IN ("title", "hasImageData", "caption", "genre", "hasTypologyData", "hasDirectorData", "directorName");
+                                where property.local_name IN ("title", "hasImageData", "caption", "genre", "hasTypologyData", "hasDirectorData", "directorName", "imagePubliclyAvailable");
                                       `;
 
                     makeInnerQuery(con, res, query, list);
