@@ -527,7 +527,7 @@ connection.connect(async (err) => {
         locusRelationshipsDictionary = locusRelationships;
         locusOverTimeRelationshipsDictionary = locusOverTimeRelationships;
 
-/*
+
         var prom = createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary, connection);
 
         prom.then(() => {
@@ -566,8 +566,8 @@ connection.connect(async (err) => {
         }).catch((errore) => {
             console.error('Si è verificato un errore:', errore);
         });
-*/
 
+/*
                 const server = app.listen(portNumber, "localhost", () => {
                     connection.end();
                     console.log("Connessione chiusa");
@@ -583,7 +583,7 @@ connection.connect(async (err) => {
                     //const intervalInMilliseconds = 360000; //1 * 60 * 60 * 1000; // 24 ore
                     //setInterval(updateData, intervalInMilliseconds);
                 });
-
+*/
     } catch (error) {
         console.error('Errore durante il recupero delle strutture dati:', error);
     }
