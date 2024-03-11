@@ -528,6 +528,7 @@ connection.connect(async (err) => {
         locusOverTimeRelationshipsDictionary = locusOverTimeRelationships;
 
 
+
         var prom = createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOverTimeRelationshipsDictionary, connection);
 
         prom.then(() => {
@@ -5289,6 +5290,8 @@ async function searchFilm(res, req, filters = null) {
         }
 
         if (functions.checkCastMember(body)) {
+            console.log("HO UN MEMBRO DEL CAST!!!!");
+
             if (functions.checkForTrueUpToIndex(query_parts, 11)) {
                 query += "\nINTERSECT\n";
             }

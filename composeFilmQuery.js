@@ -19,7 +19,7 @@ function composeFilmTitle(objectFilters) {
               SELECT v.resource_id, v.value_resource_id, v.value
               FROM value v
               JOIN property p ON v.property_id = p.id
-              WHERE p.local_name = "titleText" AND v.value LIKE '%${objectFilters.titleTextFilmTitle}%'
+              WHERE p.local_name = "titleText" AND v.value LIKE "%${objectFilters.titleTextFilmTitle}%"
             ) AS v2
             ON v1.value_resource_id = v2.resource_id
             ) as titolo_film\n`;
@@ -104,7 +104,7 @@ function composeFilmTitle(objectFilters) {
               SELECT v.resource_id, v.value_resource_id, v.value
               FROM value v
               JOIN property p ON v.property_id = p.id
-              WHERE p.local_name = "otherTitleCharacterization" AND v.value LIKE '%${objectFilters.titleOtherCharacterizationFilmTitle}%'
+              WHERE p.local_name = "otherTitleCharacterization" AND v.value LIKE "%${objectFilters.titleOtherCharacterizationFilmTitle}%"
             ) AS v2
             ON v1.value_resource_id = v2.resource_id
             ) as altra_caratterizzazione_titolo\n`;
@@ -142,7 +142,7 @@ function composeSerieTitle(objectFilters) {
               SELECT v.resource_id, v.value_resource_id, v.value
               FROM value v
               JOIN property p ON v.property_id = p.id
-              WHERE p.local_name = "titleText" AND v.value LIKE '%${objectFilters.titleTextSerieTitle}%'
+              WHERE p.local_name = "titleText" AND v.value LIKE "%${objectFilters.titleTextSerieTitle}%"
             ) AS v2
             ON v1.value_resource_id = v2.resource_id
             ) as titolo_serie\n`;
@@ -227,7 +227,7 @@ function composeSerieTitle(objectFilters) {
               SELECT v.resource_id, v.value_resource_id, v.value
               FROM value v
               JOIN property p ON v.property_id = p.id
-              WHERE p.local_name = "otherTitleCharacterization" AND v.value LIKE '%${objectFilters.titleOtherCharacterizationSerieTitle}%'
+              WHERE p.local_name = "otherTitleCharacterization" AND v.value LIKE "%${objectFilters.titleOtherCharacterizationSerieTitle}%"
             ) AS v2
             ON v1.value_resource_id = v2.resource_id
             ) as altra_caratterizzazione_titolo\n`;
@@ -266,7 +266,7 @@ function composeEpisodeSerieTitle(objectFilters) {
               SELECT v.resource_id, v.value_resource_id, v.value
               FROM value v
               JOIN property p ON v.property_id = p.id
-              WHERE p.local_name = "titleText" AND v.value LIKE '%${objectFilters.titleTextEpisodeSerieTitle}%'
+              WHERE p.local_name = "titleText" AND v.value LIKE "%${objectFilters.titleTextEpisodeSerieTitle}%"
             ) AS v2
             ON v1.value_resource_id = v2.resource_id
             ) as titolo_episodio_serie\n`;
@@ -351,7 +351,7 @@ function composeEpisodeSerieTitle(objectFilters) {
               SELECT v.resource_id, v.value_resource_id, v.value
               FROM value v
               JOIN property p ON v.property_id = p.id
-              WHERE p.local_name = "otherTitleCharacterization" AND v.value LIKE '%${objectFilters.titleOtherCharacterizationEpisodeSerieTitle}%'
+              WHERE p.local_name = "otherTitleCharacterization" AND v.value LIKE "%${objectFilters.titleOtherCharacterizationEpisodeSerieTitle}%"
             ) AS v2
             ON v1.value_resource_id = v2.resource_id
             ) as altra_caratterizzazione_titolo\n`;
