@@ -325,17 +325,10 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
                   `;
 
     if (type !== "" && type !== null && type !== undefined) {
-        q += `and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
-                    and tipi.local_name = "hasTypeData"`
+        q += `AND tipolibero_value like "${type}"`
     }
-
 
     q += `) AS luoghi`;
-
-    if (type !== "" && type !== null && type !== undefined) {
-        q += ` WHERE tipolibero_value like "${type}"`
-    }
-
     q += ');';
 
     queries.push(q);
@@ -453,22 +446,13 @@ function composeLocusRelationships(queries, ids, type, filter, locusRelationship
                         ))`;
 
     if (type !== "" && type !== null && type !== undefined) {
-        q += `and caratterizzazione_base.local_name = "hasBasicCharacterizationData"
-                    and tipi.local_name = "hasTypeData"
-                    and tipoiri.local_name = "hasIRITypeData"
-                    and nometipo.local_name = "typeName"`
+        q += `AND nometipo_value like "${type}"`
     }
 
     q += `) AS luoghi`;
-
-    if (type !== "" && type !== null && type !== undefined) {
-        q += ` WHERE nometipo_value like "${type}"`
-    }
-
     q += ');';
 
     queries.push(q);
-
 
     return queries;
 
@@ -559,7 +543,7 @@ function composeLocusOverTime(queries, ids, type, filter, locusOverTimeRelations
                 `;
 
     if (type !== "" && type !== null && type !== undefined) {
-        q += ` AND tipolibero.value like "${type}"`
+        q += ` AND tipolibero_value like "${type}"`
     }
 
     q += ';';
@@ -641,7 +625,7 @@ function composeLocusOverTime(queries, ids, type, filter, locusOverTimeRelations
 
 
     if (type !== "" && type !== null && type !== undefined) {
-        q += ` AND nometipo.value like "${type}"`
+        q += ` AND nometipo_value like "${type}"`
     }
 
     q += ';';

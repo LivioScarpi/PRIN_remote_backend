@@ -608,8 +608,6 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
 
         `DROP TABLE IF EXISTS table_join_free_type;`,
 
-        `DROP TABLE IF EXISTS table_join_type_name;`,
-
         `DROP TABLE IF EXISTS LocusRelationshipsNew;`,
 
         `DROP TABLE IF EXISTS LocusRelationships;`,
@@ -649,21 +647,23 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
 
 
         `CREATE TABLE IF NOT EXISTS table_join_free_type AS
-        SELECT t1.resource_id, tipi.value as tipolibero_value
+        SELECT t1.resource_id
         FROM tabella_unica t1
-                 LEFT JOIN tabella_unica caratterizzazione_base ON t1.value_resource_id = caratterizzazione_base.resource_id
-                 LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
-        WHERE t1.resource_class = "LocusCatalogueRecord" and t1.local_name = "hasBasicCharacterizationData"
-          and caratterizzazione_base.local_name = "hasTypeData" and tipi.local_name = "type";`,
+        LEFT JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
+        LEFT JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
+        LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
+        LEFT JOIN tabella_unica tipolibero ON tipi.value_resource_id = tipolibero.resource_id
+        WHERE t1.resource_class = "LocusCatalogueRecord";`,
 
         `CREATE TABLE IF NOT EXISTS table_join_type_name AS
-        SELECT t1.resource_id, tipoiri.value as nometipo_value
+        SELECT t1.resource_id
         FROM tabella_unica t1
-                 LEFT JOIN tabella_unica caratterizzazione_base ON t1.value_resource_id = caratterizzazione_base.resource_id
-                 LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
-                 LEFT JOIN tabella_unica tipoiri ON tipi.value_resource_id = tipoiri.resource_id
-        WHERE t1.resource_class = "LocusCatalogueRecord" and t1.local_name = "hasBasicCharacterizationData"
-          and caratterizzazione_base.local_name = "hasTypeData"  and tipi.local_name = "hasIRITypeData" and tipoiri.local_name = "typeName";`,
+         LEFT JOIN tabella_unica t2 ON t2.resource_id = t1.value_resource_id
+         LEFT JOIN tabella_unica caratterizzazione_base ON t1.resource_id = caratterizzazione_base.resource_id
+         LEFT JOIN tabella_unica tipi ON caratterizzazione_base.value_resource_id = tipi.resource_id
+         LEFT JOIN tabella_unica tipoiri ON tipi.value_resource_id = tipoiri.resource_id
+         LEFT JOIN tabella_unica nometipo ON tipoiri.value_resource_id = nometipo.resource_id
+        WHERE t1.resource_class = "LocusCatalogueRecord";`,
 
         `CREATE TABLE IF NOT EXISTS table_join_locus_over_time_free_type AS
         SELECT t1.resource_id AS t1_resource_id, t1.local_name AS t1_local_name, t1.value_resource_id AS t1_value_resource_id, t1.value AS t1_value, t1.resource_class AS t1_resource_class,
@@ -6808,53 +6808,38 @@ async function getRapprLuogo(res, req) {
                                 //unita["precro:hasPlacesData"] = connectedRapprLuogo["precro:hasPlacesData"];
                                 unita["precro:description"] = connectedRapprLuogo["precro:description"];
 
-                                console.log("\n\n\nconnectedRapprLuogo TITOLO: " + connectedRapprLuogo["dcterms:title"][0]["value"]);
                                 if (connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement']) {
+                                    console.log("sono in camera placement");
                                     unita["cameraPlacement"] = [];
-                                    connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'].forEach(cameraPlacement => {
+                                    connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:placeRepresentationHasCameraPlacement'][0]['value'].forEach(cameraPlacement => {
+                                        console.log("camera plcement corrente");
+                                        //console.log(cameraPlacement);
                                         unita["cameraPlacement"].push({
-                                            "resource_id": cameraPlacement['value'][0]['dcterms:title'][0]['resource_id'],
-                                            "dcterms:title": cameraPlacement['value'][0]['dcterms:title'][0]['value']
+                                            "resource_id": cameraPlacement['dcterms:title'][0]['resource_id'],
+                                            "dcterms:title": cameraPlacement['dcterms:title'][0]['value']
                                         });
                                     });
                                 }
 
-                                if (connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData']) {
-                                    unita["displayedObject"] = [];
-                                    connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'].forEach(singlePlaceRepresentationData => {
-                                        if(singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasDisplayedObject']) {
-                                            console.log("");
-                                            unita["displayedObject"].push({
-                                                "resource_id": singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value'][0]['dcterms:title'][0]['resource_id'],
-                                                "dcterms:title": singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value'][0]['dcterms:title'][0]['value']
-                                            });
-                                        }
-                                    });
+                                if (connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject']) {
+                                    unita["displayedObject"] = {
+                                        "resource_id": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value'][0]['dcterms:title'][0]['resource_id'],
+                                        "dcterms:title": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value'][0]['dcterms:title'][0]['value']
+                                    }
                                 }
 
-                                if (connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData']) {
-                                    unita["representedNarrativePlace"] = [];
-                                    connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'].forEach(singlePlaceRepresentationData => {
-                                        if(singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace']) {
-                                            console.log("");
-                                            unita["representedNarrativePlace"].push({
-                                                "resource_id": singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['resource_id'],
-                                                "dcterms:title": singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['value']
-                                            });
-                                        }
-                                    });
+                                if (connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace']) {
+                                    unita["representedNarrativePlace"] = {
+                                        "resource_id": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['resource_id'],
+                                        "dcterms:title": connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'][0]['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['value']
+                                    }
                                 }
-
-
 
                                 if (connectedRapprLuogo["precro:hasContextualElementsData"] && connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'] && connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace']) {
-                                    unita["contextualNarrativePlace"] = [];
-                                    connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'].forEach(contextualNarrativePlace => {
-                                        unita["contextualNarrativePlace"].push({
-                                            "resource_id": contextualNarrativePlace['value'][0]['dcterms:title'][0]['resource_id'],
-                                            "dcterms:title": contextualNarrativePlace['value'][0]['dcterms:title'][0]['value']
-                                        });
-                                    });
+                                    unita["contextualNarrativePlace"] = {
+                                        "resource_id": connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]['value'][0]['dcterms:title'][0]['resource_id'],
+                                        "dcterms:title": connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace'][0]['value'][0]['dcterms:title'][0]['value']
+                                    }
                                 }
 
 
@@ -6882,8 +6867,8 @@ async function getRapprLuogo(res, req) {
                             });
 
                             // Stampare il catalogo dei film con le unità catalografiche associate
-                            console.log("RITORNO CATALOGO FILM");
-                            //console.log(catalogoFilm);
+                            console.log("CATALOGO FILM");
+                            console.log(catalogoFilm);
 
                             // Altrimenti esegui la logica della post
                             // ...
@@ -6931,7 +6916,7 @@ async function getRapprLuogo(res, req) {
 
 // Funzione per estrarre l'ID del film e il titolo da un'unità catalografica
 function getFilmInfo(unita) {
-    /*console.log("UNITA ID");
+    console.log("UNITA ID");
     console.log(unita["dcterms:title"][0]);
     console.log(unita);
 
@@ -6946,7 +6931,7 @@ function getFilmInfo(unita) {
 
     console.log("\n\nunita[\"fiucro:hasLinkedFilmCopyCatalogueRecord\"][0][\"value\"][0][\"ficocro:hasLinkedFilmCatalogueRecord\"][0][\"value\"]");
     console.log(unita["fiucro:hasLinkedFilmCopyCatalogueRecord"][0]["value"][0]["ficocro:hasLinkedFilmCatalogueRecord"][0]["value"]);
-*/
+
     const filmInfo = unita["fiucro:hasLinkedFilmCopyCatalogueRecord"][0]["value"][0]["ficocro:hasLinkedFilmCatalogueRecord"][0]["value"][0]["dcterms:title"][0];
 
     var filmImageUrl = null;
