@@ -40,8 +40,8 @@ if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'developme
 const production = process.env.NODE_ENV === 'production';
 
 //const production = true;
-const functions = require("./composeFilmQuery");
-const locusFunctions = require("./composeLocusQuery");
+const functions = require("../composeFilmQuery");
+const locusFunctions = require("../composeLocusQuery");
 const cron = require('node-cron');
 
 const app = express();
