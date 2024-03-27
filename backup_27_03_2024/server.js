@@ -37,9 +37,7 @@ if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'developme
     throw new Error("Cannot start the server. NODE_ENV must be 'production' if you want to run the production version, or 'development' if you want to run development version");
 }
 
-//const production = process.env.NODE_ENV === 'production';
-const { production } = require('./config.js');
-
+const production = process.env.NODE_ENV === 'production';
 
 //const production = true;
 const functions = require("./composeFilmQuery");
@@ -337,37 +335,38 @@ const sendInCachePaginatedResponse = (req, res, data, page, totalResults) => {
 };
 
 const sendNotInCachePaginatedResponse = (req, res, data, page, totalResults) => {
-    console.log("SONO IN SEND PAGINATED RESPONSE");
-    console.log("totalResults: " + totalResults);
+        console.log("SONO IN SEND PAGINATED RESPONSE");
+        console.log("totalResults: " + totalResults);
 
-    if (page !== null && page !== "null") {
-        console.log("page: " + page);
-        console.log("data: " + data.length);
-        //console.log(data);
+        if (page !== null && page !== "null") {
+            console.log("page: " + page);
+            console.log("data: " + data.length);
+            //console.log(data);
 
-        console.log("req.query.per_page");
-        console.log(req.query.per_page);
-        console.log(parseInt(req.query.per_page));
-        var pageSize = req.query.per_page !== undefined && req.query.per_page !== null && req.query.per_page !== "null" ? parseInt(req.query.per_page) : defaultPageSize;
+            console.log("req.query.per_page");
+            console.log(req.query.per_page);
+            console.log(parseInt(req.query.per_page));
+            var pageSize = req.query.per_page !== undefined && req.query.per_page !== null && req.query.per_page !== "null" ? parseInt(req.query.per_page) : defaultPageSize;
 
 
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
+            const startIndex = (page - 1) * pageSize;
+            const endIndex = startIndex + pageSize;
 
-        console.log("start index: " + startIndex);
-        console.log("end index: " + endIndex);
+            console.log("start index: " + startIndex);
+            console.log("end index: " + endIndex);
 
-        const paginatedData = data.slice(startIndex, endIndex);
-        console.log("paginatedData length: " + paginatedData.length);
-        res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
-        console.log("Ho impostato l'header, ora invio la risposta");
-        res.sendResponse(JSON.stringify(paginatedData));
-        //res.send(paginatedData);
-    } else {
-        res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
-        res.sendResponse(JSON.stringify(data));
+            const paginatedData = data.slice(startIndex, endIndex);
+            console.log("paginatedData length: " + paginatedData.length);
+            res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
+            console.log("Ho impostato l'header, ora invio la risposta");
+            res.sendResponse(JSON.stringify(paginatedData));
+            //res.send(paginatedData);
+        } else {
+            res.setHeader('X-Total-Results', totalResults); // Aggiungi l'intestazione personalizzata
+            res.sendResponse(JSON.stringify(data));
+        }
     }
-};
+;
 
 
 app.get("/server/overview", (req, res) => {
@@ -520,15 +519,6 @@ connection.connect(async (err) => {
 
 
     try {
-        // Avvia il server Express solo dopo aver ottenuto entrambe le strutture dati
-        const server = app.listen(portNumber, "localhost", () => {
-            connection.end();
-            console.log("Connessione chiusa");
-
-            console.log("Server in ascolto sulla porta " + portNumber);
-            console.log("DB name: " + dbname);
-        });
-        /*
         console.log("Ottengo le strutture dati");
         // Ottieni entrambe le strutture dati prima di avviare il server
         const [locusRelationships, locusOverTimeRelationships] = await Promise.all([getLocusRelationships(connection), getLocusOverTimeRelationships(connection)]);
@@ -578,8 +568,23 @@ connection.connect(async (err) => {
             console.error('Si è verificato un errore:', errore);
         });
 
-         */
+/*
+                const server = app.listen(portNumber, "localhost", () => {
+                    connection.end();
+                    console.log("Connessione chiusa");
 
+                    console.log("Server in ascolto sulla porta " + portNumber);
+                    console.log("DB name: " + dbname);
+
+
+                    // Schedula l'esecuzione del metodo alle 3 di notte (alle 3:00 AM)
+                    cron.schedule('0 3 * * *', updateData);
+
+                    // Aggiornamento delle strutture dati ogni tot millisecondi (ad esempio ogni 24 ore)
+                    //const intervalInMilliseconds = 360000; //1 * 60 * 60 * 1000; // 24 ore
+                    //setInterval(updateData, intervalInMilliseconds);
+                });
+*/
     } catch (error) {
         console.error('Errore durante il recupero delle strutture dati:', error);
     }
@@ -697,7 +702,8 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
         JOIN tabella_unica nometipo ON tipoiri.value_resource_id = nometipo.resource_id
         WHERE t1.resource_class = "LocusCatalogueRecord" AND t1.local_name = 'hasLocusOverTimeData'
         AND t2.local_name = 'hasRelationshipsWithLociData'
-        AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf');`,];
+        AND t3.local_name IN ('locusLocatedIn', 'locusIsPartOf');`,
+    ];
 
     //Creo la query per locusRelationshipsDictionary
     var queryLocusRelationshipsDictionary = `INSERT INTO LocusRelationships (ID, Lista_id_connessi) VALUES `;
@@ -1969,7 +1975,7 @@ WHERE
         con.end();
 
         console.log("PROVO A STAMPARE L'OGGETTO!");
-        console.log(util.inspect(objectListFinal, {depth: null}));
+        console.log(util.inspect(objectListFinal, { depth: null }));
 
 
         if (res) {
@@ -2089,7 +2095,7 @@ function getLocusNameFromID(locus_id, res) {
 
         con.end();
 
-        if (list.length > 0) {
+        if(list.length > 0){
             res.json({name: list[0]["value"]});
         } else {
             res.json([]);
@@ -3108,7 +3114,9 @@ function getUnitaCatalograficheOfFilm(res, req) {
                     });
 
                     var ucObject = {
-                        ucCameraPlacement: ucCameraPlacement, ucNarrativePlace: ucNarrativePlace, otherUC: otherUC
+                        ucCameraPlacement: ucCameraPlacement,
+                        ucNarrativePlace: ucNarrativePlace,
+                        otherUC: otherUC
                     }
 
                     console.log("INVIO LE UC SEPARATE");
@@ -3326,7 +3334,9 @@ function getSchedeRappresentazioneLuoghiOfUnitaCatalografica(res, req) {
 function removeDuplicatesByProps(array) {
     var props = ['property_id', 'value', 'local_name'];
     return array.reduce((accumulator, current) => {
-        const isDuplicate = accumulator.some(item => props.every(prop => item[prop] === current[prop]));
+        const isDuplicate = accumulator.some(item =>
+            props.every(prop => item[prop] === current[prop])
+        );
 
         if (!isDuplicate) {
             accumulator.push(current);
@@ -6299,11 +6309,20 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
                                 const maxLat = bbox[2];
 
                                 currentLocusGeoJSON = {
-                                    type: 'Feature', geometry: {
+                                    type: 'Feature',
+                                    geometry: {
                                         type: 'Polygon',
-                                        coordinates: [[[minLon, minLat], [maxLon, minLat], [maxLon, maxLat], [minLon, maxLat], [minLon, minLat] // chiudi il poligono
-                                        ]]
-                                    }, properties: {}
+                                        coordinates: [
+                                            [
+                                                [minLon, minLat],
+                                                [maxLon, minLat],
+                                                [maxLon, maxLat],
+                                                [minLon, maxLat],
+                                                [minLon, minLat] // chiudi il poligono
+                                            ]
+                                        ]
+                                    },
+                                    properties: {}
                                 };
                             } else {
                                 //console.log("ESISTE IL GEOJSON DI OPENSTREETMAP");
@@ -6434,7 +6453,8 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
 
                         // Crea un nuovo GeoJSON Polygon con le coordinate unite
                         const polygonGeoJSON = {
-                            type: "Polygon", coordinates: mergedCoordinatesGeoJSON
+                            type: "Polygon",
+                            coordinates: mergedCoordinatesGeoJSON
                         };
 
                         if (currentLocusGeoJSON.geometry.type === "Point") {
@@ -6453,7 +6473,8 @@ async function getLocusInRegionIDs(locus, drawnAreaGeoJSON, realPlacePolygon, sc
 
                             // Crea un nuovo GeoJSON Polygon con le coordinate unite
                             const polygon = {
-                                type: "Polygon", coordinates: [mergedCoordinates]
+                                type: "Polygon",
+                                coordinates: [mergedCoordinates]
                             };
 
                             /*
@@ -6640,12 +6661,16 @@ async function getRapprLuogo(res, req) {
                             } // altrimenti: ho già un array di rappr luogo
 
 
+
                             //array di rappresentazioni luogo che rispettano il range di ambientazione nel tempo
                             var rapprLuogoCorrectNarrativeTime = [];
 
                             //TODO: idea -> guardare separatamente le rappr luogo che rispettano il filtro di data nel luogo di ripresa e di data nel luogo narrativo
 
-                            if (body.locusFilters.narrativeYearRange !== null && body.locusFilters.narrativeYearRange !== undefined && body.locusFilters.narrativeYearRange.fromYear.year !== 2999 && body.locusFilters.narrativeYearRange.fromYear.era !== 'a.C.' && body.locusFilters.narrativeYearRange.toYear.year !== 2999 && body.locusFilters.narrativeYearRange.toYear.era !== 'd.C.') {
+                            if (body.locusFilters.narrativeYearRange !== null && body.locusFilters.narrativeYearRange !== undefined &&
+                                body.locusFilters.narrativeYearRange.fromYear.year !== 2999 && body.locusFilters.narrativeYearRange.fromYear.era !== 'a.C.' &&
+                                body.locusFilters.narrativeYearRange.toYear.year !== 2999 && body.locusFilters.narrativeYearRange.toYear.era !== 'd.C.'
+                            ) {
                                 console.log("narrativeYearRange");
                                 console.log(body.locusFilters.narrativeYearRange);
 
@@ -6764,7 +6789,9 @@ async function getRapprLuogo(res, req) {
 
                             var rapprLuogoCameraPlacementTime = [];
 
-                            if (body.locusFilters.cameraPlacementYearRange !== null && body.locusFilters.cameraPlacementYearRange !== undefined && body.locusFilters.cameraPlacementYearRange.fromYear.year !== 2999 && body.locusFilters.cameraPlacementYearRange.fromYear.era !== 'a.C.' && body.locusFilters.cameraPlacementYearRange.toYear.year !== 2999 && body.locusFilters.cameraPlacementYearRange.toYear.era !== 'd.C.') {
+                            if (body.locusFilters.cameraPlacementYearRange !== null && body.locusFilters.cameraPlacementYearRange !== undefined &&
+                                body.locusFilters.cameraPlacementYearRange.fromYear.year !== 2999 && body.locusFilters.cameraPlacementYearRange.fromYear.era !== 'a.C.' &&
+                                body.locusFilters.cameraPlacementYearRange.toYear.year !== 2999 && body.locusFilters.cameraPlacementYearRange.toYear.era !== 'd.C.') {
                                 console.log("cameraPlacementYearRange");
                                 console.log(body.locusFilters.cameraPlacementYearRange);
 
@@ -6908,7 +6935,7 @@ async function getRapprLuogo(res, req) {
                                 if (connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData']) {
                                     unita["displayedObject"] = [];
                                     connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'].forEach(singlePlaceRepresentationData => {
-                                        if (singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasDisplayedObject']) {
+                                        if(singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasDisplayedObject']) {
                                             console.log("");
                                             unita["displayedObject"].push({
                                                 "resource_id": singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasDisplayedObject'][0]['value'][0]['dcterms:title'][0]['resource_id'],
@@ -6921,7 +6948,7 @@ async function getRapprLuogo(res, req) {
                                 if (connectedRapprLuogo["precro:hasPlacesData"] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'] && connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData']) {
                                     unita["representedNarrativePlace"] = [];
                                     connectedRapprLuogo["precro:hasPlacesData"][0]['value'][0]['precro:hasSinglePlaceRepresentationData'].forEach(singlePlaceRepresentationData => {
-                                        if (singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace']) {
+                                        if(singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace']) {
                                             console.log("");
                                             unita["representedNarrativePlace"].push({
                                                 "resource_id": singlePlaceRepresentationData['value'][0]['precro:placeRepresentationHasRepresentedNarrativePlace'][0]['value'][0]['dcterms:title'][0]['resource_id'],
@@ -6930,6 +6957,7 @@ async function getRapprLuogo(res, req) {
                                         }
                                     });
                                 }
+
 
 
                                 if (connectedRapprLuogo["precro:hasContextualElementsData"] && connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'] && connectedRapprLuogo["precro:hasContextualElementsData"][0]['value'][0]['precro:placeRepresentationHasContextualNarrativePlace']) {
@@ -6975,6 +7003,7 @@ async function getRapprLuogo(res, req) {
                             //return connectedRapprLuogo;
                             //TODO: rimettere il return sotto
                             return catalogoFilm;
+
 
 
                         }).then(function (catalogoFilm) {
@@ -7047,7 +7076,10 @@ function getFilmInfo(unita) {
     //console.log("GENRES");
     //console.log(genres);
     return {
-        filmId: filmInfo.resource_id, filmTitle: filmInfo.value, filmImageUrl: filmImageUrl, genres: genres,
+        filmId: filmInfo.resource_id,
+        filmTitle: filmInfo.value,
+        filmImageUrl: filmImageUrl,
+        genres: genres,
     };
 }
 
