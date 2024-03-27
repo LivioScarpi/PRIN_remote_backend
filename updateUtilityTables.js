@@ -16,7 +16,7 @@ let locusRelationshipsDictionary = {};
 let locusOverTimeRelationshipsDictionary = {};
 
 console.log("chiamo test");
-dropOldTablesAndUpdateData();
+//dropOldTablesAndUpdateData();
 
 function dropOldTablesAndUpdateData() {
     console.log("chiedo le tabelle");
@@ -32,7 +32,7 @@ function dropOldTablesAndUpdateData() {
             throw err;
         }
         console.log('Connesso al database MySQL!');
-        
+
         // Esegui una query per ottenere tutti i nomi delle tabelle del database
         con.query('SHOW TABLES', (err, tables) => {
             console.log("SONO QUA");
