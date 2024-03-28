@@ -373,7 +373,7 @@ function createOrUpdateRelationhipsTables(locusRelationshipsDictionary, locusOve
         );`,
 
         `CREATE TABLE FilmsGenres_new AS
-            SELECT DISTINCT t1.resource_id AS id_film AS genre, t2.value FROM tabella_unica t1
+            SELECT DISTINCT t1.resource_id, t2.value FROM tabella_unica t1
                                                      JOIN tabella_unica t2 ON t1.value_resource_id = t2.resource_id
             WHERE t1.local_name = 'hasTypologyData' AND t2.local_name='genre';`,
 

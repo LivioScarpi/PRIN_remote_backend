@@ -2189,7 +2189,7 @@ function getFilmsHomepage(className, con, res) {
 
 };
 
-async function getFilmsOfLocus(list, con, res, filters, returnToClient) {
+async function getFilmsOfLocus(list, con, res, filters) {
     console.log("CHIEDO I FILM PER MOSSTRARLI E SONO DENTRO getFilmsOfLocus");
     console.log(list);
 
@@ -2240,7 +2240,7 @@ async function getFilmsOfLocus(list, con, res, filters, returnToClient) {
         console.log("QUERY");
         console.log(query);
 
-        return makeInnerQuery(con, res, query, list, returnToClient);
+        makeInnerQuery(con, res, query, list, true);
     } else {
         con.end();
         res.json([]);
@@ -3341,186 +3341,26 @@ function removeDuplicatesByProps(array) {
     }, []);
 }
 
-async function getFilmFiltersFilmsPage(res, req) {
+function getFilmFiltersFilmsPage(res, req) {
     console.log("REQ FILTERS");
     console.log(req.body);
     console.log(req.body.filters);
 
-    if (req.body.filters !== undefined && req.body.filters !== null) {
+    if(req.body.filters !== undefined && req.body.filters !== null){
         var filters = req.body.filters;
-        var keyword = filters.keyword;
         var genres = filters.genres;
         var locus = filters.locus;
         var director = filters.director;
 
-        if ((keyword !== undefined && keyword !== null) || (genres !== null && genres !== undefined && genres.length > 0) || (locus !== undefined && locus !== null) || (director !== undefined && director !== null)) {
+        if((genres !== null && genres !== undefined && genres.length > 0) || (locus !== undefined && locus !== null) || (director !== undefined && director !== null)){
             //QUA DEVO CALCOLARE I FILTRI
             console.log("devo calcolare i filtri");
-            //res.json([]);
-
-            var body =  {
-                    advancedSearch: false,
-                    //film title
-                    titleTextFilmTitle: keyword,
-                    titleTypeFilmTitle: null,
-                    titleLanguageFilmTitle: null,
-                    titleOtherCharacterizationFilmTitle: null,
-                    //serieTitle
-                    titleTextSerieTitle: keyword,
-                    titleTypeSerieTitle: null,
-                    titleLanguageSerieTitle: null,
-                    titleOtherCharacterizationSerieTitle: null,
-                    //episodeSerieTitle
-                    titleTextEpisodeSerieTitle: keyword,
-                    titleTypeEpisodeSerieTitle: null,
-                    titleLanguageEpisodeSerieTitle: null,
-                    titleOtherCharacterizationEpisodeSerieTitle: null,
-                    //titolocopia
-                    copyTitleText: null,
-                    //altri filtri
-                    filmProductionName: null,
-                    filmProductionCountry: null,
-                    filmGenres: genres,
-                    //filmDate
-                    filmDateTypology: null,
-                    filmStartDate: null,
-                    filmEndDate: null,
-                    //filmDirector
-                    filmDirectorName: director,
-                    filmDirectorOtherName: null,
-                    filmSubject: null,
-                    filmScreenwriterName: null,
-                    filmCredits: null,
-                    filmSynopsis: null,
-                    filmCastMemberName: null,
-                    filmCharacterName: null,
-                    //filmLanguageAndStyle
-                    filmLighting: null,
-                    filmCameraAngle: null,
-                    filmTilt: null,
-                    filmCameraShotType: null,
-                    filmMatte: null,
-                    filmPointOfView: null,
-                    filmCameraMotion: null,
-                    filmColouring: null,
-                    locus: locus,
-            }
-
-            console.log("BODY!!!!");
-            console.log(body);
-
-            //var films = await searchFilmWrapper(res, newReq, false);
-            //const [films] = await Promise.all([searchFilmWrapper(res, newReq, false)]);
-
-            var objectFilmInLocus = {"locus_id": body.locus};
-
-            if (body.locus === null) {
-                console.log("NON HO UN LOCUS COME PARAMETRO");
-                const [films] = await Promise.all([searchFilm(res, req, body)]);
-                console.log("films");
-                console.log(films);
-
-                returnFilmFilters(res, req, films);
-            } else {
-                console.log("HO UN LOCUS COME PARAMETRO");
-                const [films, filmsInLocus] = await Promise.all([searchFilm(res, req, body), getFilmsOfLocusByLocusID(res, req, objectFilmInLocus, false)]);
-                console.log("films");
-                console.log(films);
-
-                console.log("filmsInLocus");
-                console.log(filmsInLocus);
-
-                const filmIntersection = intersection(films, filmsInLocus);
-                console.log(filmIntersection); // Output: [3, 4, 5]
-
-                returnFilmFilters(res, req, filmIntersection);
-
-            }
+            res.json([]);
         } else {
-            const [films] = await Promise.all([getAllFilmsIDsDB(res)]);
-
-            console.log("ECCO TUTTI I FILM!!!!");
-            console.log(films);
-
-            returnFilmFilters(res, req, films);
+            getFilmFilters(res);
         }
-    } else {
+    } else{
         res.json([]);
-    }
-}
-
-function returnFilmFilters(res, req, films){
-    if(films.length > 0 ) {
-        var con = mysql.createConnection({
-            host: "localhost", user: "root", password: "omekas_prin_2022", database: dbname
-        });
-
-        //chiedo la lista di film
-        var query = `
-                        SELECT distinct null as id, genre as value, 'genre' as type FROM FilmsGenres WHERE id_film IN (${films})
-                        UNION
-                        SELECT distinct null as id, director as value, 'director' as type FROM FilmsDirectors WHERE id_film IN (${films})
-                        UNION
-                        SELECT distinct FilmInLocus.id_luogo as id, value, 'locus' as type FROM FilmInLocus JOIN value v1 ON FilmInLocus.id_luogo = v1.resource_id
-                                                                   JOIN property p1 ON v1.property_id = p1.id
-                                                                    WHERE p1.local_name = 'title' AND id_film IN (${films});
-                        `;
-
-        let filters = new Promise((resolve, reject) => {
-            con.query(query, (err, rows) => {
-                // console.log(rows);
-                if (err) {
-                    return reject(err);
-                } else {
-                    let list = Object.values(JSON.parse(JSON.stringify(rows)));
-
-                    resolve({list, res});
-                }
-            });
-        });
-
-        //chiedo tutti i dati dei film
-        filters.then(async function ({list, res}) {
-            console.log("RES NEL THEN");
-
-            var genres = removeDuplicatesByProps(list.filter(obj => obj.type === "genre")).map(genre => genre.value);
-            var directorsNames = removeDuplicatesByProps(list.filter(obj => obj.type === "director")).map(director => director.value);
-            var locus = removeDuplicatesByProps(list.filter(obj => obj.type === "locus"));
-
-            console.log("\nGENRES");
-            console.log(genres);
-            console.log("\ndirectorsNames");
-            console.log(directorsNames);
-            console.log("locus");
-            console.log(locus);
-
-            const [filmsObjects] = await Promise.all([getFilmsOfLocus(films, con, res, null, false)]);
-            console.log("films");
-            console.log(films);
-            console.log("\n\nFILMS OBJECT!!!1");
-            console.log(filmsObjects);
-
-            var objectResult = {
-                //films: filmsObjects,
-                genres: genres,
-                directorsNames: directorsNames,
-                locus: locus
-            }
-
-            //la connessione viene già chiusa dai metodi chiamati
-            res.json(objectResult);
-        });
-
-    } else {
-        //TODO: restituire tutti i filtri vuoti
-        var objectResult = {
-           // films: [],
-            genres: [],
-            directorsNames : [],
-            locus: []
-        }
-
-        res.json(objectResult);
     }
 }
 
@@ -3928,7 +3768,7 @@ function makeInnerQuery(con, res, query, list, returnToClient = true) {
     });
 }
 
-async function searchFilmWrapper(res, req, returnToClient = true) {
+async function searchFilmWrapper(res, req) {
     cacheMiddleware(req, res, async () => {
         console.log("BODY");
         console.log(req.body);
@@ -3950,7 +3790,7 @@ async function searchFilmWrapper(res, req, returnToClient = true) {
             });
 
             console.log("CHIEDO GLI OGGETTI INTERI DEI FILM");
-            return await getFilmsOfLocus(films, con, res, null, returnToClient);
+            getFilmsOfLocus(films, con, res, null);
         } else {
             console.log("HO UN LOCUS COME PARAMETRO");
             const [films, filmsInLocus] = await Promise.all([searchFilm(res, req, body), getFilmsOfLocusByLocusID(res, req, objectFilmInLocus, false)]);
@@ -3968,7 +3808,7 @@ async function searchFilmWrapper(res, req, returnToClient = true) {
             });
 
             console.log("CHIEDO GLI OGGETTI INTERI DEI FILM");
-            return await getFilmsOfLocus(filmIntersection, con, res, null, returnToClient);
+            getFilmsOfLocus(filmIntersection, con, res, null);
         }
 
 
